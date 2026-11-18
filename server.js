@@ -692,6 +692,7 @@ app.get('/sppu-pyq-drive-2024-pattern', ensureDbConnected, async (req, res) => {
 // ── Catalog SEO Dynamic Meta Injection ────────────────────────────────────────
 app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) => {
   try {
+    console.log('[Catalog] 1. Request params:', req.params);
     const base = getSiteBaseUrl(req);
     const { yearSlug, subjectSlug } = req.params;
     
@@ -718,6 +719,7 @@ app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) =>
     }
 
     const { resolvedBranch, resolvedSubject } = await resolveBranchAndSubject(year, branchSlug, subjectSlug);
+    console.log('[Catalog] 2. Resolved branch/subject:', resolvedBranch, resolvedSubject);
 
     const is2019 = (subjectSlug && subjectSlug.includes('2019')) || (resolvedSubject && resolvedSubject.includes('2019'));
     const patternLabel = is2019 ? '2019 Pattern (legacy)' : '2024 Pattern';
@@ -833,8 +835,9 @@ app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) =>
       if (subjectSlug) query.subject = formattedSubject;
 
       files = await File.find(query).sort({ isPinned: -1, uploadDate: -1 }).lean();
+      console.log('[Catalog] 3. Files fetched:', files.length);
     } catch (dbErr) {
-      console.error('Failed to fetch files for SEO container:', dbErr);
+      console.error('[Catalog] Failed to fetch files for SEO container:', dbErr);
     }
 
     let html = getStaticFile('index.html');
@@ -953,9 +956,10 @@ app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) =>
     const directoryHtml = await generateSeoDirectory();
     html = html.replace('<div id="seo-links-directory"></div>', directoryHtml);
 
+    console.log('[Catalog] 4. Sending generated HTML, length:', html.length);
     res.type('html').send(html);
   } catch (err) {
-    console.error('Catalog SEO route error:', err);
+    console.error('[Catalog] Catched error:', err);
     res.type('html').send(getStaticFile('index.html'));
   }
 });
