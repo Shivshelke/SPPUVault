@@ -6,7 +6,7 @@ const bcrypt   = require('bcryptjs');
 const admin    = require('firebase-admin');
 const router   = express.Router();
 const Student  = require('../models/Student');
-const rateLimit = require('express-rate-limit');
+const rateLimit = require('../utils/rateLimiter');
 const { signToken, setAuthCookie, clearAuthCookie } = require('../utils/jwt');
 
 const loginLimiter = rateLimit({

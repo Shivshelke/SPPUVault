@@ -77,7 +77,8 @@ router.use(requireAdmin);
 // GET /admin/dashboard
 router.get('/dashboard', (req, res) => {
   const path = require('path');
-  res.sendFile(path.join(__dirname, '../public/dashboard.html'));
+  const baseDir = typeof __dirname !== 'undefined' ? __dirname : (process.cwd ? process.cwd() : '');
+  res.sendFile(path.join(baseDir, '../public/dashboard.html'));
 });
 
 

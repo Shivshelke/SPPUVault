@@ -7,15 +7,18 @@ const cookieParser = require('cookie-parser');
 const jwtSessionMiddleware = require('./middleware/jwtSession');
 const { connectDB, ObjectId } = require('./utils/db');
 const path = require('path');
+const BASE_DIR = typeof __dirname !== 'undefined' ? __dirname : (process.cwd ? process.cwd() : '');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const rateLimit = require('./utils/rateLimiter');
 const mongoSanitize = require('express-mongo-sanitize');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ── Connect MongoDB (Native Driver) ───────────────────────────────────────────
-connectDB().catch(err => console.error('[MongoDB Error]', err));
+if (typeof require !== 'undefined' && require.main === module) {
+  connectDB().catch(err => console.error('[MongoDB Error]', err));
+}
 
 // Middleware to ensure DB is connected for database-reliant routes
 const ensureDbConnected = async (req, res, next) => {
@@ -259,19 +262,19 @@ async function generateSeoDirectory() {
 app.get('/', ensureDbConnected, async (req, res) => {
   try {
     const base = getSiteBaseUrl(req);
-    let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+    let html = fs.readFileSync(path.join(BASE_DIR, 'public', 'index.html'), 'utf8');
     const directoryHtml = await generateSeoDirectory();
     html = html.replace('<div id="seo-links-directory"></div>', directoryHtml);
     html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
     res.send(html);
   } catch (err) {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(BASE_DIR, 'public', 'index.html'));
   }
 });
 
 // ── SGPA Calculator Route ─────────────────────────────────────────────────────
 app.get('/sgpa-calculator', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'sgpa-calculator.html'));
+  res.sendFile(path.join(BASE_DIR, 'public', 'sgpa-calculator.html'));
 });
 
 // ── Product SEO Route ─────────────────────────────────────────────────────────
@@ -290,7 +293,7 @@ app.get('/product.html', ensureDbConnected, async (req, res, next) => {
     }
     if (!p) return next();
 
-    let html = fs.readFileSync(path.join(__dirname, 'public', 'product.html'), 'utf8');
+    let html = fs.readFileSync(path.join(BASE_DIR, 'public', 'product.html'), 'utf8');
     
     const prodTitle = `${p.title.replace(/"/g, '&quot;')} | SPPUVault Marketplace`;
     const prodDesc = (p.description || `Download verified SPPU Engineering study material for ${p.branch || 'all branches'}. Handwritten notes and solved PYQs on SPPUVault.`).replace(/"/g, '&quot;');
@@ -345,24 +348,24 @@ app.get('/product.html', ensureDbConnected, async (req, res, next) => {
 app.get('/llms.txt', (req, res) => {
   try {
     const base = getSiteBaseUrl(req);
-    let content = fs.readFileSync(path.join(__dirname, 'public', 'llms.txt'), 'utf8');
+    let content = fs.readFileSync(path.join(BASE_DIR, 'public', 'llms.txt'), 'utf8');
     content = content.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
     res.type('text/plain; charset=utf-8');
     res.send(content);
   } catch (e) {
-    res.sendFile(path.join(__dirname, 'public', 'llms.txt'));
+    res.sendFile(path.join(BASE_DIR, 'public', 'llms.txt'));
   }
 });
 
 app.get('/llms-full.txt', (req, res) => {
   try {
     const base = getSiteBaseUrl(req);
-    let content = fs.readFileSync(path.join(__dirname, 'public', 'llms-full.txt'), 'utf8');
+    let content = fs.readFileSync(path.join(BASE_DIR, 'public', 'llms-full.txt'), 'utf8');
     content = content.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
     res.type('text/plain; charset=utf-8');
     res.send(content);
   } catch (e) {
-    res.sendFile(path.join(__dirname, 'public', 'llms-full.txt'));
+    res.sendFile(path.join(BASE_DIR, 'public', 'llms-full.txt'));
   }
 });
 
@@ -370,7 +373,7 @@ app.get('/llms-full.txt', (req, res) => {
 app.use((req, res, next) => {
   if (req.method === 'GET' && (req.path.endsWith('.html') || req.path === '/index.html')) {
     const filePath = req.path.replace(/^\//, '');
-    const fullPath = path.join(__dirname, 'public', filePath);
+    const fullPath = path.join(BASE_DIR, 'public', filePath);
     if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
       try {
         const base = getSiteBaseUrl(req);
@@ -387,7 +390,7 @@ app.use((req, res, next) => {
 });
 
 // ── Static files ──────────────────────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(BASE_DIR, 'public')));
 
 // ── SEO Files ─────────────────────────────────────────────────────────────────
 app.get('/robots.txt', (req, res) => {
@@ -646,13 +649,13 @@ app.get('/dsa', (req, res) => {
 app.get('/sppu-pyq-drive-2024-pattern', ensureDbConnected, async (req, res) => {
   try {
     const base = getSiteBaseUrl(req);
-    let html = fs.readFileSync(path.join(__dirname, 'public', 'sppu-pyq-drive-2024-pattern.html'), 'utf8');
+    let html = fs.readFileSync(path.join(BASE_DIR, 'public', 'sppu-pyq-drive-2024-pattern.html'), 'utf8');
     const directoryHtml = await generateSeoDirectory();
     html = html.replace('<div id="seo-links-directory"></div>', directoryHtml);
     html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
     res.send(html);
   } catch (err) {
-    res.sendFile(path.join(__dirname, 'public', 'sppu-pyq-drive-2024-pattern.html'));
+    res.sendFile(path.join(BASE_DIR, 'public', 'sppu-pyq-drive-2024-pattern.html'));
   }
 });
 
@@ -804,7 +807,7 @@ app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) =>
   }
 
   try {
-    let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+    let html = fs.readFileSync(path.join(BASE_DIR, 'public', 'index.html'), 'utf8');
     html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
 
     // Replace Meta Tags dynamically
@@ -922,7 +925,7 @@ app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) =>
 
     res.send(html);
   } catch (err) {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(BASE_DIR, 'public', 'index.html'));
   }
 });
 
@@ -940,7 +943,7 @@ app.get('*', ensureDbConnected, async (req, res) => {
       urlPath.includes('dsa') || urlPath.includes('m2')
     )) {
       
-      let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+      let html = fs.readFileSync(path.join(BASE_DIR, 'public', 'index.html'), 'utf8');
       html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
       
       let title = '';
@@ -1159,10 +1162,18 @@ app.get('*', ensureDbConnected, async (req, res) => {
       return res.status(404).json({ error: 'Route not found' });
     }
 
-    return res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+    try {
+      return res.status(404).sendFile(path.join(BASE_DIR, 'public', '404.html'));
+    } catch (_) {
+      return res.status(404).type('text/html').send('<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>');
+    }
   } catch (err) {
     console.error('Catch-all SEO generation error:', err);
-    return res.status(500).sendFile(path.join(__dirname, 'public', '404.html'));
+    try {
+      return res.status(500).sendFile(path.join(BASE_DIR, 'public', '404.html'));
+    } catch (_) {
+      return res.status(500).type('text/html').send('<!DOCTYPE html><html><body><h1>500 Server Error</h1></body></html>');
+    }
   }
 });
 

@@ -5,15 +5,73 @@
  * Replaces Mongoose TCP models with native collection queries.
  */
 const { MongoClient, ObjectId } = require('mongodb');
+const { URL } = require('url');
 
 let client = null;
 let dbInstance = null;
+let resolvedUri = null;
 
-function getClient() {
+async function resolveMongoUri(uri) {
+  if (!uri || !uri.startsWith('mongodb+srv://')) return uri;
+  if (resolvedUri) return resolvedUri;
+
+  try {
+    const parsed = new URL(uri.replace('mongodb+srv://', 'http://'));
+    const host = parsed.hostname;
+    const auth = parsed.username ? `${parsed.username}:${parsed.password}@` : '';
+    const pathname = parsed.pathname || '';
+    const searchParams = new URLSearchParams(parsed.search);
+
+    const srvRes = await fetch(`https://cloudflare-dns.com/dns-query?name=_mongodb._tcp.${host}&type=SRV`, {
+      headers: { 'Accept': 'application/dns-json' }
+    });
+    const srvData = await srvRes.json();
+    if (!srvData.Answer || srvData.Answer.length === 0) {
+      return uri;
+    }
+
+    const hosts = srvData.Answer
+      .filter(a => a.type === 33 && a.data)
+      .map(a => {
+        const parts = a.data.trim().split(/\s+/);
+        const port = parts[2] || '27017';
+        const target = (parts[3] || '').replace(/\.$/, '');
+        return `${target}:${port}`;
+      })
+      .join(',');
+
+    let extraParams = 'ssl=true';
+    try {
+      const txtRes = await fetch(`https://cloudflare-dns.com/dns-query?name=${host}&type=TXT`, {
+        headers: { 'Accept': 'application/dns-json' }
+      });
+      const txtData = await txtRes.json();
+      if (txtData.Answer) {
+        for (const ans of txtData.Answer) {
+          if (ans.type === 16 && ans.data) {
+            extraParams += `&${ans.data.replace(/["']/g, '')}`;
+          }
+        }
+      }
+    } catch (_) {}
+
+    const existing = searchParams.toString();
+    const finalQuery = existing ? `${extraParams}&${existing}` : extraParams;
+    resolvedUri = `mongodb://${auth}${hosts}${pathname}?${finalQuery}`;
+    return resolvedUri;
+  } catch (err) {
+    console.warn('[MongoDB] DoH resolution fallback:', err.message);
+    return uri;
+  }
+}
+
+async function getClient() {
   if (client) return client;
 
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error('[MongoDB] Error: MONGODB_URI is not defined in environment.');
+  const rawUri = process.env.MONGODB_URI;
+  if (!rawUri) throw new Error('[MongoDB] Error: MONGODB_URI is not defined in environment.');
+
+  const uri = await resolveMongoUri(rawUri);
 
   client = new MongoClient(uri, {
     maxPoolSize: 10,
@@ -28,7 +86,7 @@ function getClient() {
 
 async function getDb() {
   if (dbInstance) return dbInstance;
-  const c = getClient();
+  const c = await getClient();
   await c.connect();
   dbInstance = c.db();
   return dbInstance;

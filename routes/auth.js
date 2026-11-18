@@ -5,7 +5,7 @@ require('dotenv').config();
 const express = require('express');
 const bcrypt  = require('bcryptjs');
 const router  = express.Router();
-const rateLimit = require('express-rate-limit');
+const rateLimit = require('../utils/rateLimiter');
 const { signToken, setAuthCookie, clearAuthCookie } = require('../utils/jwt');
 
 const loginLimiter = rateLimit({
