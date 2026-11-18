@@ -111,6 +111,25 @@ function toObjectId(id) {
   return id;
 }
 
+function parseProjection(proj) {
+  if (!proj) return undefined;
+  if (typeof proj === 'object' && !Array.isArray(proj)) return proj;
+  if (typeof proj === 'string') {
+    const res = {};
+    const parts = proj.trim().split(/\s+/);
+    for (const part of parts) {
+      if (!part) continue;
+      if (part.startsWith('-')) {
+        res[part.slice(1)] = 0;
+      } else {
+        res[part] = 1;
+      }
+    }
+    return Object.keys(res).length > 0 ? res : undefined;
+  }
+  return undefined;
+}
+
 function wrapDoc(doc, collectionName) {
   if (!doc || typeof doc !== 'object') return doc;
 
@@ -125,6 +144,8 @@ function wrapDoc(doc, collectionName) {
         const updateDoc = { ...this };
         delete updateDoc._id;
         delete updateDoc.save;
+        delete updateDoc.markModified;
+        delete updateDoc.toObject;
         await col.updateOne({ _id: toObjectId(this._id) }, { $set: updateDoc });
       } else {
         const res = await col.insertOne(this);
@@ -134,6 +155,18 @@ function wrapDoc(doc, collectionName) {
     }
   });
 
+  Object.defineProperty(doc, 'markModified', {
+    enumerable: false,
+    writable: true,
+    value: function() { return this; }
+  });
+
+  Object.defineProperty(doc, 'toObject', {
+    enumerable: false,
+    writable: true,
+    value: function() { return { ...this }; }
+  });
+
   return doc;
 }
 
@@ -141,7 +174,7 @@ class QueryChain {
   constructor(collectionName, filter, projection) {
     this.collectionName = collectionName;
     this.filter = filter || {};
-    this.projection = projection;
+    this.projection = parseProjection(projection);
     this.sortOptions = null;
     this.limitNum = null;
     this.skipNum = null;
@@ -240,7 +273,8 @@ function createModel(collectionName, defaultData = {}) {
     const col = db.collection(collectionName);
     const query = { ...filter };
     if (query._id) query._id = toObjectId(query._id);
-    const doc = await col.findOne(query, projection ? { projection } : {});
+    const parsedProj = parseProjection(projection);
+    const doc = await col.findOne(query, parsedProj ? { projection: parsedProj } : {});
     return wrapDoc(doc, collectionName);
   };
 
