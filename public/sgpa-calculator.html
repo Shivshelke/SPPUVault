@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#090a0d" />
+
+  <title>SPPU SGPA & CGPA Calculator — 2024 & 2019 Patterns | SPPUVault</title>
+  <meta name="description" content="Calculate your Savitribai Phule Pune University (SPPU) Engineering SGPA, CGPA, and percentage accurately using official SPPU 10-point credit system rules for 2024 and 2019 patterns." />
+  <meta name="keywords" content="SPPU SGPA calculator, SPPU CGPA calculator, SPPU percentage calculator, Pune University SGPA to percentage, SPPU 2024 pattern SGPA, SPPU 2019 pattern credit calculator" />
+  <link rel="canonical" href="https://sppuvault.com/sgpa-calculator" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="SPPU SGPA & CGPA Calculator — 2024 & 2019 Patterns" />
+  <meta property="og:description" content="Accurate SPPU engineering SGPA and CGPA calculator with official percentage conversion formula: % = (SGPA - 0.75) × 10." />
+  <meta property="og:url" content="https://sppuvault.com/sgpa-calculator" />
+  <meta property="og:site_name" content="SPPUVault" />
+
+  <link rel="preload" href="/fonts/Lexend-Variable.ttf" as="font" type="font/ttf" crossorigin />
+  <link rel="stylesheet" href="/css/style.css?v=22.0" />
+  <script src="/js/theme.js" defer></script>
+
+  <style>
+    .calc-page-wrap {
+      padding: 40px 0 80px;
+    }
+
+    .calc-hero {
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto 36px;
+    }
+
+    .calc-hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      margin-bottom: 12px;
+      letter-spacing: -0.035em;
+    }
+
+    .calc-hero p {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Pattern Bar */
+    .pattern-bar-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .pattern-btn-toggle {
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pattern-btn-toggle:hover {
+      border-color: var(--border-hover);
+      color: var(--text);
+    }
+
+    .pattern-btn-toggle.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    /* Layout Grid */
+    .calc-layout-grid {
+      display: grid;
+      grid-template-columns: 1.8fr 1.2fr;
+      gap: 28px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .calc-layout-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Main Table Panel */
+    .calc-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .calc-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .calc-card-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+
+    /* Subject Row */
+    .subject-rows-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .subject-row {
+      display: grid;
+      grid-template-columns: 2.2fr 1fr 1.3fr 1fr 38px;
+      gap: 10px;
+      align-items: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      transition: border-color 0.15s ease;
+    }
+
+    .subject-row:hover {
+      border-color: var(--border-hover);
+    }
+
+    .subject-row.has-error {
+      border-color: var(--danger) !important;
+    }
+
+    .subject-field-label {
+      display: none;
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    @media (max-width: 680px) {
+      .subject-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 14px;
+        position: relative;
+      }
+
+      .subject-row-name-col {
+        grid-column: 1 / -1;
+      }
+
+      .subject-row-del-col {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+      }
+
+      .subject-field-label {
+        display: block;
+      }
+    }
+
+    .calc-input,
+    .calc-select {
+      width: 100%;
+      height: 42px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      color: var(--text);
+      padding: 0 10px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .calc-input:focus,
+    .calc-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .calc-row-del-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-xs);
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .calc-row-del-btn:hover {
+      color: var(--danger);
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.25);
+    }
+
+    /* Table Toolbar */
+    .calc-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .calc-toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* Summary Card (Right) */
+    .summary-card {
+      position: sticky;
+      top: 88px;
+    }
+
+    .sgpa-big-display {
+      text-align: center;
+      padding: 24px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 20px;
+    }
+
+    .sgpa-score {
+      font-size: 3.5rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+      letter-spacing: -0.04em;
+      margin-bottom: 6px;
+    }
+
+    .sgpa-percent {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .class-badge {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--accent-subtle);
+      color: var(--accent-text);
+      border: 1px solid var(--accent-border);
+    }
+
+    .metrics-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .metric-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      font-size: 0.88rem;
+    }
+
+    .metric-label {
+      color: var(--text-secondary);
+    }
+
+    .metric-value {
+      font-weight: 700;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+
+    /* CGPA Section */
+    .cgpa-accordion-box {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      background: var(--surface2);
+      margin-top: 20px;
+    }
+
+    .cgpa-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cgpa-inputs-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    /* Info Table */
+    .info-card {
+      margin-top: 36px;
+    }
+
+    .grading-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-top: 14px;
+    }
+
+    .grading-table th,
+    .grading-table td {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .grading-table th {
+      background: var(--surface2);
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .grading-table td {
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ── NAV ── -->
+  <nav class="nav">
+    <a href="/" class="nav-brand" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
+      <span class="nav-logo">SV</span>
+      <span>SPPUVault</span>
+      <span class="brand-badge">2024</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="/#years">Browse</a>
+      <a href="/sgpa-calculator" style="color:var(--accent); font-weight:600;">SGPA Calculator</a>
+      <a href="/marketplace.html">Premium <span style="color:#f59e0b;font-size:0.75rem;vertical-align:top;font-weight:bold;">PRO</span></a>
+      <a href="/articles.html">Articles</a>
+      <a href="/about.html">About</a>
+      <a href="/contact.html">Contact</a>
+      <button onclick="toggleTheme()" class="btn-ghost theme-toggle" title="Toggle Theme"><span class="theme-icon">☀️</span></button>
+    </div>
+    <button class="hamburger" id="hamburger" onclick="toggleMobileMenu()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <!-- ── MAIN WRAPPER ── -->
+  <main class="calc-page-wrap">
+    <div class="container">
+
+      <!-- Hero Header -->
+      <div class="calc-hero">
+        <div class="hero-badge" style="margin-bottom:14px;">SPPU Engineering Tools · 2024 &amp; 2019 Patterns</div>
+        <h1>SPPU SGPA &amp; CGPA Calculator</h1>
+        <p>Calculate your Semester Grade Point Average (SGPA), Cumulative CGPA, and equivalent percentage using official Savitribai Phule Pune University credit grading guidelines.</p>
+      </div>
+
+      <!-- Pattern Selector -->
+      <div class="pattern-bar-wrap">
+        <button type="button" class="pattern-btn-toggle active" id="pat2024Btn" onclick="switchPattern('2024')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+          2024 Pattern (NEP-2020)
+        </button>
+        <button type="button" class="pattern-btn-toggle" id="pat2019Btn" onclick="switchPattern('2019')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          2019 Pattern (CBCS)
+        </button>
+      </div>
+
+      <!-- Main Layout -->
+      <div class="calc-layout-grid">
+
+        <!-- Left: Subject Entry Panel -->
+        <div class="calc-card">
+          <div class="calc-card-header">
+            <div>
+              <div class="calc-card-title">Semester Subjects &amp; Grades</div>
+              <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">Enter credits and select grade or type marks (0–100)</div>
+            </div>
+            <button type="button" class="btn-ghost small" onclick="loadSamplePreset()" style="min-height:36px;">
+              ⚡ Load Sample Semester
+            </button>
+          </div>
+
+          <!-- Subjects List -->
+          <div id="subjectRowsList" class="subject-rows-container">
+            <!-- Dynamically populated via JS -->
+          </div>
+
+          <!-- Toolbar -->
+          <div class="calc-toolbar">
+            <div class="calc-toolbar-left">
+              <button type="button" class="btn-ghost" onclick="addSubjectRow()" style="min-height:44px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Add Subject
+              </button>
+              <button type="button" class="btn-ghost" onclick="resetCalculator()" style="min-height:44px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                Reset
+              </button>
+            </div>
+            <button type="button" class="btn-primary" onclick="calculateSGPA()" style="min-height:44px; padding:0 24px;">
+              Calculate SGPA &rarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Results & CGPA Summary -->
+        <div>
+          <div class="calc-card summary-card">
+            <div class="calc-card-title" style="margin-bottom:16px;">Semester Performance</div>
+
+            <!-- SGPA & Percentage Box -->
+            <div class="sgpa-big-display">
+              <div class="sgpa-score" id="resSgpa">0.00</div>
+              <div class="sgpa-percent" id="resPercent">Equivalent: 0.00%</div>
+              <div class="class-badge" id="resClassBadge">Awaiting Inputs</div>
+            </div>
+
+            <!-- Metrics List -->
+            <div class="metrics-list">
+              <div class="metric-row">
+                <span class="metric-label">Total Semester Credits</span>
+                <span class="metric-value" id="resTotalCredits">0</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Total Grade Points (C × GP)</span>
+                <span class="metric-value" id="resTotalPoints">0</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Pattern Selected</span>
+                <span class="metric-value" id="resPatternBadge">2024 Pattern</span>
+              </div>
+            </div>
+
+            <!-- Optional Overall CGPA Calculator -->
+            <div class="cgpa-accordion-box">
+              <div class="cgpa-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                Cumulative CGPA (Optional)
+              </div>
+              <div style="font-size:0.78rem; color:var(--text-secondary); margin-bottom:10px;">Combine previous semesters with current semester to get your overall CGPA.</div>
+              <div class="cgpa-inputs-row">
+                <div>
+                  <label class="subject-field-label" style="display:block;">Prev Total Credits</label>
+                  <input type="number" id="prevCredits" class="calc-input" placeholder="e.g. 40" min="0" oninput="calculateSGPA()" />
+                </div>
+                <div>
+                  <label class="subject-field-label" style="display:block;">Prev CGPA</label>
+                  <input type="number" id="prevCgpa" class="calc-input" placeholder="e.g. 8.20" step="0.01" min="0" max="10" oninput="calculateSGPA()" />
+                </div>
+              </div>
+              <div class="metric-row" style="background:var(--surface);">
+                <span class="metric-label">Overall Cumulative CGPA</span>
+                <span class="metric-value" id="resOverallCgpa" style="color:var(--accent);">—</span>
+              </div>
+              <div class="metric-row" style="background:var(--surface); margin-top:6px;">
+                <span class="metric-label">Overall Percentage</span>
+                <span class="metric-value" id="resOverallPercent" style="color:var(--text);">—</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SPPU Official Grading Scale & Circular Formula -->
+      <div class="calc-card info-card">
+        <div class="calc-card-title">Official SPPU Grading Scale &amp; Conversion Rules</div>
+        <p style="color:var(--text-secondary); font-size:0.88rem; line-height:1.6; margin-top:6px;">
+          Both the newly revised <strong>2024 Pattern</strong> (under NEP-2020) and the <strong>2019 Pattern (CBCS)</strong> follow Savitribai Phule Pune University's official 10-point credit scale:
+        </p>
+
+        <div style="overflow-x:auto;">
+          <table class="grading-table">
+            <thead>
+              <tr>
+                <th>Marks Range</th>
+                <th>Letter Grade</th>
+                <th>Grade Point</th>
+                <th>Performance Level</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>90 – 100</td>
+                <td><strong style="color:var(--accent);">O</strong></td>
+                <td>10</td>
+                <td>Outstanding</td>
+              </tr>
+              <tr>
+                <td>80 – 89</td>
+                <td><strong style="color:var(--accent);">A+</strong></td>
+                <td>9</td>
+                <td>Excellent</td>
+              </tr>
+              <tr>
+                <td>70 – 79</td>
+                <td><strong style="color:var(--accent);">A</strong></td>
+                <td>8</td>
+                <td>Very Good</td>
+              </tr>
+              <tr>
+                <td>60 – 69</td>
+                <td><strong style="color:var(--accent);">B+</strong></td>
+                <td>7</td>
+                <td>Good</td>
+              </tr>
+              <tr>
+                <td>50 – 59</td>
+                <td><strong style="color:var(--accent);">B</strong></td>
+                <td>6</td>
+                <td>Above Average</td>
+              </tr>
+              <tr>
+                <td>45 – 49</td>
+                <td><strong style="color:var(--accent);">C</strong></td>
+                <td>5</td>
+                <td>Average</td>
+              </tr>
+              <tr>
+                <td>40 – 44</td>
+                <td><strong style="color:var(--accent);">P</strong></td>
+                <td>4</td>
+                <td>Pass</td>
+              </tr>
+              <tr>
+                <td>&lt; 40</td>
+                <td><strong style="color:var(--danger);">F</strong></td>
+                <td>0</td>
+                <td>Fail (Backlog / ATKT)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:20px; padding:16px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.85rem; color:var(--text-secondary); line-height:1.6;">
+          <strong style="color:var(--text); display:block; margin-bottom:4px;">Official SPPU Percentage Conversion Formula:</strong>
+          According to SPPU examination circulars, SGPA/CGPA is converted to percentage using the formula:<br>
+          <code style="display:inline-block; margin-top:6px; padding:4px 10px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--accent); font-weight:700; font-size:0.9rem;">Percentage (%) = (SGPA − 0.75) × 10</code>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ── Mobile Bottom Nav ── -->
+  <nav class="mobile-bottom-nav">
+    <a href="/" class="bottom-nav-item">
+      <div class="bottom-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></div>
+      <span>Home</span>
+    </a>
+    <a href="/sgpa-calculator" class="bottom-nav-item active">
+      <div class="bottom-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg></div>
+      <span>SGPA</span>
+    </a>
+    <a href="/marketplace.html" class="bottom-nav-item">
+      <div class="bottom-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
+      <span>PRO</span>
+    </a>
+    <a href="/articles.html" class="bottom-nav-item">
+      <div class="bottom-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></div>
+      <span>Articles</span>
+    </a>
+  </nav>
+
+  <!-- ── FOOTER ── -->
+  <footer class="footer" style="margin-top:60px;">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <div class="footer-logo">SPPUVault</div>
+        <p class="footer-desc">Independent educational platform providing verified question papers, study materials, and SGPA calculations for Savitribai Phule Pune University engineering students.</p>
+        <p class="footer-copyright">&copy; <span id="footerYear">2026</span> SPPUVault. All rights reserved.</p>
+      </div>
+      <div class="footer-links-grid">
+        <div class="footer-column">
+          <div class="footer-title">Engineering Tools</div>
+          <a href="/sgpa-calculator">SGPA Calculator</a>
+          <a href="/sppu-previous-year-question-paper-2024-pattern">2024 Pattern PYQs</a>
+          <a href="/sppu-question-paper-2019-pattern">2019 Pattern PYQs</a>
+        </div>
+        <div class="footer-column">
+          <div class="footer-title">Navigation</div>
+          <a href="/">Home</a>
+          <a href="/articles.html">Articles &amp; Guides</a>
+          <a href="/marketplace.html">Digital Marketplace</a>
+          <a href="/about.html">About Us</a>
+        </div>
+        <div class="footer-column">
+          <div class="footer-title">Support &amp; Legal</div>
+          <a href="/contact.html">Contact Us</a>
+          <a href="/privacy-policy.html">Privacy Policy</a>
+          <a href="/terms.html">Terms of Service</a>
+          <a href="/disclaimer.html">Disclaimer</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ── JAVASCRIPT CALCULATOR LOGIC ── -->
+  <script>
+    // SPPU Grade Points Mapping
+    const GRADE_POINTS = {
+      'O': 10,
+      'A+': 9,
+      'A': 8,
+      'B+': 7,
+      'B': 6,
+      'C': 5,
+      'P': 4,
+      'F': 0
+    };
+
+    let selectedPattern = '2024';
+
+    // Sample default semester: 5 subjects
+    const DEFAULT_PRESET = [
+      { name: 'Engineering Mathematics – I', credits: 4, grade: 'A+' },
+      { name: 'Engineering Physics', credits: 4, grade: 'A' },
+      { name: 'Basic Electrical Engineering', credits: 3, grade: 'O' },
+      { name: 'Engineering Mechanics', credits: 3, grade: 'B+' },
+      { name: 'Programming & Problem Solving', credits: 3, grade: 'A' }
+    ];
+
+    function toggleMobileMenu() {
+      const navLinks = document.getElementById('navLinks');
+      const hamburger = document.getElementById('hamburger');
+      if (navLinks) navLinks.classList.toggle('mobile-open');
+      if (hamburger) hamburger.classList.toggle('active');
+    }
+
+    function switchPattern(pattern) {
+      selectedPattern = pattern;
+      document.getElementById('pat2024Btn').classList.toggle('active', pattern === '2024');
+      document.getElementById('pat2019Btn').classList.toggle('active', pattern === '2019');
+      document.getElementById('resPatternBadge').textContent = pattern + ' Pattern';
+      calculateSGPA();
+    }
+
+    function gradeFromMarks(marks) {
+      const m = parseFloat(marks);
+      if (isNaN(m) || m < 0) return 'F';
+      if (m >= 90) return 'O';
+      if (m >= 80) return 'A+';
+      if (m >= 70) return 'A';
+      if (m >= 60) return 'B+';
+      if (m >= 50) return 'B';
+      if (m >= 45) return 'C';
+      if (m >= 40) return 'P';
+      return 'F';
+    }
+
+    function addSubjectRow(sub = { name: '', credits: 3, grade: 'A' }) {
+      const container = document.getElementById('subjectRowsList');
+      const rowId = 'sub_' + Math.random().toString(36).substring(2, 9);
+
+      const row = document.createElement('div');
+      row.className = 'subject-row';
+      row.id = rowId;
+
+      row.innerHTML = `
+        <div class="subject-row-name-col">
+          <label class="subject-field-label">Subject Name</label>
+          <input type="text" class="calc-input sub-name" placeholder="e.g. Subject Name" value="${escapeHtml(sub.name)}" oninput="calculateSGPA()" />
+        </div>
+        <div>
+          <label class="subject-field-label">Credits</label>
+          <input type="number" class="calc-input sub-credits" min="1" max="10" step="1" value="${sub.credits || 3}" oninput="calculateSGPA()" />
+        </div>
+        <div>
+          <label class="subject-field-label">Marks (0–100)</label>
+          <input type="number" class="calc-input sub-marks" min="0" max="100" placeholder="Optional" oninput="handleMarksInput(this, '${rowId}')" />
+        </div>
+        <div>
+          <label class="subject-field-label">Grade</label>
+          <select class="calc-select sub-grade" onchange="calculateSGPA()">
+            <option value="O" ${sub.grade === 'O' ? 'selected' : ''}>O (10)</option>
+            <option value="A+" ${sub.grade === 'A+' ? 'selected' : ''}>A+ (9)</option>
+            <option value="A" ${sub.grade === 'A' ? 'selected' : ''}>A (8)</option>
+            <option value="B+" ${sub.grade === 'B+' ? 'selected' : ''}>B+ (7)</option>
+            <option value="B" ${sub.grade === 'B' ? 'selected' : ''}>B (6)</option>
+            <option value="C" ${sub.grade === 'C' ? 'selected' : ''}>C (5)</option>
+            <option value="P" ${sub.grade === 'P' ? 'selected' : ''}>P (4)</option>
+            <option value="F" ${sub.grade === 'F' ? 'selected' : ''}>F (0)</option>
+          </select>
+        </div>
+        <div class="subject-row-del-col">
+          <button type="button" class="calc-row-del-btn" onclick="removeSubjectRow('${rowId}')" title="Remove Subject">&times;</button>
+        </div>
+      `;
+
+      container.appendChild(row);
+      calculateSGPA();
+    }
+
+    function handleMarksInput(inputEl, rowId) {
+      const row = document.getElementById(rowId);
+      if (!row) return;
+      const marksVal = inputEl.value.trim();
+      const gradeSelect = row.querySelector('.sub-grade');
+      if (marksVal !== '') {
+        const autoGrade = gradeFromMarks(marksVal);
+        if (gradeSelect) gradeSelect.value = autoGrade;
+      }
+      calculateSGPA();
+    }
+
+    function removeSubjectRow(rowId) {
+      const row = document.getElementById(rowId);
+      const container = document.getElementById('subjectRowsList');
+      if (row && container.children.length > 1) {
+        row.remove();
+        calculateSGPA();
+      } else if (container.children.length <= 1) {
+        alert('You must have at least one subject row.');
+      }
+    }
+
+    function loadSamplePreset() {
+      const container = document.getElementById('subjectRowsList');
+      container.innerHTML = '';
+      DEFAULT_PRESET.forEach(sub => addSubjectRow(sub));
+      calculateSGPA();
+    }
+
+    function resetCalculator() {
+      loadSamplePreset();
+      const prevC = document.getElementById('prevCredits');
+      const prevG = document.getElementById('prevCgpa');
+      if (prevC) prevC.value = '';
+      if (prevG) prevG.value = '';
+      calculateSGPA();
+    }
+
+    function getAcademicClass(sgpa, hasFail) {
+      if (hasFail || sgpa < 4.0) return { text: 'Fail / ATKT Backlog', color: '#ef4444' };
+      if (sgpa >= 7.75) return { text: 'First Class with Distinction', color: '#10b981' };
+      if (sgpa >= 6.75) return { text: 'First Class', color: '#3b82f6' };
+      if (sgpa >= 6.25) return { text: 'Higher Second Class', color: '#6366f1' };
+      if (sgpa >= 5.75) return { text: 'Second Class', color: '#f59e0b' };
+      return { text: 'Pass Class', color: '#94a3b8' };
+    }
+
+    function calculateSGPA() {
+      const rows = document.querySelectorAll('#subjectRowsList .subject-row');
+      let totalCredits = 0;
+      let totalGradePoints = 0;
+      let hasFail = false;
+      let hasValidationError = false;
+
+      rows.forEach(row => {
+        const nameInput = row.querySelector('.sub-name');
+        const creditsInput = row.querySelector('.sub-credits');
+        const marksInput = row.querySelector('.sub-marks');
+        const gradeSelect = row.querySelector('.sub-grade');
+
+        const credits = parseFloat(creditsInput.value) || 0;
+        const grade = gradeSelect.value;
+        const gp = GRADE_POINTS[grade] !== undefined ? GRADE_POINTS[grade] : 0;
+
+        // Validation
+        let isRowInvalid = false;
+        if (credits <= 0) {
+          isRowInvalid = true;
+          hasValidationError = true;
+        }
+
+        if (marksInput && marksInput.value.trim() !== '') {
+          const m = parseFloat(marksInput.value);
+          if (isNaN(m) || m < 0 || m > 100) {
+            isRowInvalid = true;
+            hasValidationError = true;
+          }
+        }
+
+        row.classList.toggle('has-error', isRowInvalid);
+
+        if (grade === 'F') hasFail = true;
+
+        totalCredits += credits;
+        totalGradePoints += (credits * gp);
+      });
+
+      // SGPA Math
+      let sgpa = 0;
+      if (totalCredits > 0) {
+        sgpa = totalGradePoints / totalCredits;
+      }
+
+      // Percentage Math: SPPU official formula: (SGPA - 0.75) * 10
+      let percent = 0;
+      if (sgpa >= 0.75) {
+        percent = (sgpa - 0.75) * 10;
+      }
+
+      // Update DOM
+      document.getElementById('resSgpa').textContent = sgpa.toFixed(2);
+      document.getElementById('resPercent').textContent = `Equivalent: ${percent.toFixed(2)}%`;
+      document.getElementById('resTotalCredits').textContent = totalCredits;
+      document.getElementById('resTotalPoints').textContent = totalGradePoints.toFixed(1);
+
+      const classInfo = getAcademicClass(sgpa, hasFail);
+      const classBadge = document.getElementById('resClassBadge');
+      if (classBadge) {
+        classBadge.textContent = classInfo.text;
+        classBadge.style.color = classInfo.color;
+        classBadge.style.borderColor = classInfo.color;
+      }
+
+      // Cumulative CGPA calculation
+      const prevCreditsVal = parseFloat(document.getElementById('prevCredits').value) || 0;
+      const prevCgpaVal = parseFloat(document.getElementById('prevCgpa').value) || 0;
+
+      const overallCgpaEl = document.getElementById('resOverallCgpa');
+      const overallPercentEl = document.getElementById('resOverallPercent');
+
+      if (prevCreditsVal > 0 && prevCgpaVal > 0 && totalCredits > 0) {
+        const prevPoints = prevCreditsVal * prevCgpaVal;
+        const combinedCredits = prevCreditsVal + totalCredits;
+        const combinedPoints = prevPoints + totalGradePoints;
+        const cgpa = combinedPoints / combinedCredits;
+        const cgpaPercent = cgpa >= 0.75 ? (cgpa - 0.75) * 10 : 0;
+
+        overallCgpaEl.textContent = cgpa.toFixed(2);
+        overallPercentEl.textContent = `${cgpaPercent.toFixed(2)}%`;
+      } else {
+        overallCgpaEl.textContent = '—';
+        overallPercentEl.textContent = '—';
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Init with 5 sample subjects
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSamplePreset();
+    });
+  </script>
+</body>
+</html>

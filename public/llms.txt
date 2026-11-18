@@ -1,0 +1,35 @@
+# SPPUVault — SPPU Engineering Previous Year Questions (PYQs)
+
+> SPPUVault is the leading, free, and comprehensive educational portal for engineering students of Savitribai Phule Pune University (SPPU). It provides organized access to Previous Year Question (PYQ) papers, solved papers, syllabus patterns, and topper study notes specifically tailored for the SPPU 2024 Pattern and legacy 2019 Pattern.
+>
+> **Official Portals:**
+> - Active Domain: https://sppuvault.com/
+> - Alternate / Mirror Domain: https://sppuvault.com/
+
+## Core Pages & Portals
+- [Home & PYQ Browser](https://sppuvault.com/): Search and download question papers across all engineering disciplines
+- [Complete 2024 Pattern PYQ Drive](https://sppuvault.com/sppu-pyq-drive-2024-pattern): One-click access to all subjects, branches, insem and endsem question papers
+- [Digital Study Marketplace](https://sppuvault.com/marketplace.html): Access premium verified topper notes, solved question banks, and revision guides
+- [Engineering Study Articles & Preparation Tips](https://sppuvault.com/articles.html): Insem exam strategies, time management, and scoring high in SPPU exams
+- [About SPPUVault](https://sppuvault.com/about.html): Platform mission, background, and student-first educational vision
+- [Contact & Support](https://sppuvault.com/contact.html): Submit missing paper requests or get student assistance
+
+## Supported Academic Years
+- [First Year (FE) Engineering](https://sppuvault.com/first-year-fe-engineering): Common group subjects including M1, M2, Physics, Chemistry, Mechanics, PPS, and BEE
+- [Second Year (SE) Engineering](https://sppuvault.com/second-year-engineering): Core branch fundamentals for Computer, IT, AI-DS, Mechanical, Civil, and E&TC
+- [Third Year (TE) Engineering](https://sppuvault.com/third-year-engineering): Advanced specialized subjects and insem/endsem papers
+- [Final Year (BE) Engineering](https://sppuvault.com/final-year-engineering): Degree exam question papers, electives, and project-year resources
+
+## Supported Branches
+- [Computer Engineering](https://sppuvault.com/sppu-computer-engineering-pyq-2024-pattern)
+- [Information Technology (IT)](https://sppuvault.com/sppu-it-engineering-pyq-2024-pattern)
+- [Artificial Intelligence & Data Science (AI-DS)](https://sppuvault.com/sppu-artificial-intelligence-and-data-science-pyq-2024-pattern)
+- [Electronics & Telecommunication (E&TC)](https://sppuvault.com/sppu-electronics-and-telecommunication-pyq-2024-pattern)
+- [Mechanical Engineering](https://sppuvault.com/sppu-mechanical-engineering-pyq-2024-pattern)
+- [Civil Engineering](https://sppuvault.com/sppu-civil-engineering-pyq-2024-pattern)
+
+## Popular Key Subjects
+- [Data Structures & Algorithms (DSA)](https://sppuvault.com/sppu-dsa-question-paper-2024-pattern): Dec 2025, 2024, and 2019 pattern papers
+- [Digital Electronics & Logic Design (DELD)](https://sppuvault.com/deld-subject-in-engineering): Complete insem and endsem question papers
+- [Engineering Mathematics II (M2)](https://sppuvault.com/sppu-m2-pyq): FE exam papers and solutions
+- [2024 Pattern Archive](https://sppuvault.com/sppu-question-paper-2024-pattern): Complete exam papers across all departments

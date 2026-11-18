@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6906861946957043" crossorigin="anonymous"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/img/icon-192.png" />
+  <link rel="apple-touch-icon" href="/img/icon-192.png" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>Dashboard — SPPUVault Admin</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/css/dashboard.css?v=2" />
+  <script src="/js/theme.js"></script>
+</head>
+
+<body>
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="sidebar-logo">⬡</span>
+      <span>SPPUVault</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-panel="upload">
+        <span class="nav-icon">↑</span> Upload Paper
+      </a>
+      <a href="#" class="nav-item" data-panel="files">
+        <span class="nav-icon">☰</span> Manage Files
+      </a>
+      <a href="#" class="nav-item" data-panel="categories">
+        <span class="nav-icon">⊞</span> Categories
+      </a>
+      <a href="#" class="nav-item" data-panel="students">
+        <span class="nav-icon">👥</span> Students
+      </a>
+      <a href="#" class="nav-item" data-panel="premium">
+        <span class="nav-icon">✨</span> Premium Files
+      </a>
+      <a href="#" class="nav-item" data-panel="earnings">
+        <span class="nav-icon">💰</span> Earnings
+      </a>
+      <a href="#" class="nav-item" data-panel="feedback">
+        <span class="nav-icon">💬</span> Feedback <span class="nav-badge" id="badge-feedback"
+          style="display:none"></span>
+      </a>
+      <a href="#" class="nav-item" data-panel="requests">
+        <span class="nav-icon">🔔</span> Premium Requests <span class="nav-badge" id="badge-requests"
+          style="display:none"></span>
+      </a>
+      <a href="#" class="nav-item" data-panel="password">
+        <span class="nav-icon">🔑</span> Change Password
+      </a>
+      <a href="#" class="nav-item" data-panel="banner">
+        <span class="nav-icon">📢</span> Notice Banner
+      </a>
+      <a href="#" class="nav-item" data-panel="telegram-promo">
+        <span class="nav-icon">✈️</span> Telegram Promos
+      </a>
+      <div class="nav-divider"></div>
+      <a href="/" class="nav-item" target="_blank">
+        <span class="nav-icon">⬡</span> View Site
+      </a>
+      <a href="#" class="nav-item logout" onclick="doLogout()">
+        <span class="nav-icon">→</span> Logout
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <button class="menu-btn" onclick="toggleSidebar()" aria-label="Toggle Sidebar">☰</button>
+      <div class="topbar-title" id="topbarTitle">Upload Paper</div>
+      <div class="topbar-right" style="display:flex; align-items:center; gap:1rem;">
+        <button onclick="toggleTheme()" class="btn-ghost theme-toggle" title="Toggle Theme"
+          style="border:none; background:transparent; cursor:pointer; font-size:1.1rem; padding:0;"><span
+            class="theme-icon">☀️</span></button>
+        <span class="admin-badge">Admin</span>
+      </div>
+    </header>
+
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-val" id="dTotal">—</div>
+        <div class="stat-lbl">Total Papers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="dFirst">—</div>
+        <div class="stat-lbl">1st Year</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="dSecond">—</div>
+        <div class="stat-lbl">2nd Year</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="dThird">—</div>
+        <div class="stat-lbl">3rd Year</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="dFourth">—</div>
+        <div class="stat-lbl">4th Year</div>
+      </div>
+      <div class="stat-card" style="border-color:var(--accent);">
+        <div class="stat-val" id="dStudents" style="color:var(--accent)">—</div>
+        <div class="stat-lbl">Total Students</div>
+      </div>
+    </div>
+
+    <!-- ══ PANEL: UPLOAD ══ -->
+    <section class="panel active" id="panel-upload">
+      <div class="panel-header">
+        <h2>Upload Question Paper</h2>
+      </div>
+
+      <div class="upload-layout">
+        <!-- Form -->
+        <div class="upload-form-card">
+          <div class="alert" id="uploadAlert" style="display:none"></div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Year <span class="req">*</span></label>
+              <select id="upYear" onchange="onYearChange()">
+                <option value="">— Select Year —</option>
+                <option value="first">1st Year</option>
+                <option value="second">2nd Year</option>
+                <option value="third">3rd Year</option>
+                <option value="fourth">4th Year</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Branch <span class="req">*</span></label>
+              <select id="upBranch" disabled onchange="onBranchChange()">
+                <option value="">— Select Branch —</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" id="upPatternGroup" style="display:none">
+            <label>Pattern <span class="req">*</span></label>
+            <select id="upPattern" onchange="onPatternChange()">
+              <option value="2024 Pattern">2024 Pattern</option>
+              <option value="2019 Pattern">2019 Pattern</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Subject <span class="req">*</span></label>
+            <select id="upSubject" disabled>
+              <option value="">— Select Subject —</option>
+              <option value="__custom__">+ Type custom subject…</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="customSubjectGroup" style="display:none">
+            <label>Custom Subject Name</label>
+            <input type="text" id="upCustomSubject" placeholder="Enter subject name…" />
+          </div>
+
+          <div class="form-group" id="customFileNameGroup">
+            <label>Custom File Name (Optional)</label>
+            <input type="text" id="upCustomFileName" placeholder="e.g. 2023_Insem_Maths.pdf" />
+          </div>
+
+          <div class="form-group">
+            <label>Upload Method</label>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+              <button type="button" class="btn-ghost" id="btnMethodFile" onclick="setUploadMethod('file')" style="flex: 1; min-width: 110px; padding: 0.6rem; font-weight: 600; border-color: var(--accent); background: rgba(99,102,241,.15); color: var(--accent);">File Upload</button>
+              <button type="button" class="btn-ghost" id="btnMethodLink" onclick="setUploadMethod('link')" style="flex: 1; min-width: 140px; padding: 0.6rem; font-weight: 600;">Google Drive Link</button>
+              <button type="button" class="btn-ghost" id="btnMethodSolution" onclick="setUploadMethod('solution')" style="flex: 1; min-width: 140px; padding: 0.6rem; font-weight: 600;">Upload Solution</button>
+            </div>
+          </div>
+
+          <div class="form-group" id="fileUploadContainer">
+            <label>PDF File <span class="req">*</span></label>
+            <div class="dropzone" id="dropzone" onclick="document.getElementById('pdfInput').click()">
+              <div class="drop-icon">⬆</div>
+              <div class="drop-text">Click to select or drag & drop PDF</div>
+              <div class="drop-hint">Maximum file size: 20 MB</div>
+              <input type="file" id="pdfInput" accept=".pdf" style="display:none" onchange="onFileSelect(this)" />
+            </div>
+            <div class="file-preview" id="filePreview" style="display:none">
+              <span id="fileName"></span>
+              <button onclick="clearFile()" aria-label="Clear File">✕</button>
+            </div>
+          </div>
+
+          <div class="form-group" id="linkUploadContainer" style="display:none">
+            <label>Google Drive / External PDF Link(s) <span class="req">*</span></label>
+            <textarea id="upLink" rows="4" style="width:100%; padding:.7rem 1rem; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:.9rem; outline:none; transition:.2s; resize:vertical;" placeholder="e.g.&#10;https://drive.google.com/file/d/...&#10;https://drive.google.com/file/d/...&#10;(One URL per line for bulk upload)"></textarea>
+          </div>
+
+          <!-- ══ UPLOAD SOLUTION CONTAINER ══ -->
+          <div id="solutionUploadContainer" style="display:none">
+            <div class="form-group">
+              <label>Select Question Paper to attach solution to <span class="req">*</span></label>
+              <select id="upSolutionPaper" onchange="onSolutionPaperSelected()">
+                <option value="">— Select Year, Branch & Subject first —</option>
+              </select>
+              <div id="solutionPaperHint" style="font-size:0.8rem; color:var(--muted); margin-top:0.3rem;">
+                Select Year, Branch & Subject above to see available question papers.
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Solution Source</label>
+              <div style="display: flex; gap: 0.5rem; margin-bottom: 0.8rem;">
+                <button type="button" class="btn-ghost" id="btnSolMethodFile" onclick="setSolutionSubMethod('file')" style="flex: 1; padding: 0.5rem; font-weight: 600; border-color: var(--accent); background: rgba(99,102,241,.15); color: var(--accent);">📄 File Upload</button>
+                <button type="button" class="btn-ghost" id="btnSolMethodLink" onclick="setSolutionSubMethod('link')" style="flex: 1; padding: 0.5rem; font-weight: 600;">🔗 Google Drive / URL Link</button>
+              </div>
+            </div>
+
+            <div class="form-group" id="solFileUploadWrap">
+              <label>Solution PDF File <span class="req">*</span></label>
+              <div class="dropzone" id="solutionDropzone" onclick="document.getElementById('solutionPdfInput').click()">
+                <div class="drop-icon">⬆</div>
+                <div class="drop-text">Click to select or drag & drop Solution PDF</div>
+                <div class="drop-hint">Maximum file size: 20 MB</div>
+                <input type="file" id="solutionPdfInput" accept=".pdf" style="display:none" onchange="onSolutionFileSelect(this)" />
+              </div>
+              <div class="file-preview" id="solutionFilePreview" style="display:none">
+                <span id="solutionFileName"></span>
+                <button onclick="clearSolutionFile()" aria-label="Clear Solution File">✕</button>
+              </div>
+            </div>
+
+            <div class="form-group" id="solLinkUploadWrap" style="display:none">
+              <label>Solution Google Drive / External PDF Link <span class="req">*</span></label>
+              <input type="url" id="upSolutionLink" class="input-field" style="width:100%; padding:.7rem 1rem; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:.9rem; outline:none;" placeholder="https://drive.google.com/file/d/... or https://..." />
+            </div>
+
+            <div class="form-group">
+              <label>Custom Solution Title (Optional)</label>
+              <input type="text" id="upSolutionTitle" class="input-field" style="width:100%; padding:.7rem 1rem; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:.9rem; outline:none;" placeholder="e.g. M1_Dec_2025_Solved_Paper.pdf" />
+            </div>
+          </div>
+
+          <div class="upload-progress" id="uploadProgress" style="display:none">
+            <div class="progress-bar">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <span id="progressText">Uploading…</span>
+          </div>
+
+          <button class="btn-primary" id="uploadBtn" onclick="doUpload()">Upload Paper →</button>
+        </div>
+
+        <!-- Recent uploads -->
+        <div class="recent-card">
+          <div class="recent-header">Recent Uploads</div>
+          <div id="recentList">
+            <div class="empty-state small">No files yet</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL: FILES ══ -->
+    <section class="panel" id="panel-files">
+      <div class="panel-header" style="flex-direction: column; align-items: flex-start; gap: 1rem;">
+        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <h2>Manage Files</h2>
+          <div class="filter-bar">
+            <select id="filterYear" onchange="window.currentFileTab === 'premium' ? window.loadPremiumAdminFilesForTab() : loadAdminFiles()">
+              <option value="">All Years</option>
+              <option value="first">1st Year</option>
+              <option value="second">2nd Year</option>
+              <option value="third">3rd Year</option>
+              <option value="fourth">4th Year</option>
+            </select>
+            <input type="text" id="filterSearch" placeholder="Search files…" oninput="window.currentFileTab === 'premium' ? window.loadPremiumAdminFilesForTab() : loadAdminFiles()" />
+          </div>
+        </div>
+        <div class="sub-tabs" style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border); width: 100%;">
+          <button id="subTabFree" onclick="window.switchFileTab('free')" style="background: none; border: none; color: var(--accent); font-size: 1rem; font-weight: 600; cursor: pointer; padding: 0.5rem 1rem; border-bottom: 2px solid var(--accent);">Free Files</button>
+          <button id="subTabPremium" onclick="window.switchFileTab('premium')" style="background: none; border: none; color: var(--text-secondary); font-size: 1rem; font-weight: 500; cursor: pointer; padding: 0.5rem 1rem; border-bottom: 2px solid transparent; transition: 0.2s;">Premium Files <span style="background: linear-gradient(90deg, #8b5cf6, #ec4899); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 0.8rem; margin-left: 4px;">PRO</span></button>
+        </div>
+      </div>
+      <div id="adminFileList"></div>
+      <div id="adminPremiumFileList" style="display: none;"></div>
+    </section>
+
+    <!-- ══ PANEL: CATEGORIES ══ -->
+    <section class="panel" id="panel-categories">
+      <div class="panel-header">
+        <h2>Manage Categories</h2>
+      </div>
+
+      <div class="cat-grid">
+        <div class="cat-card">
+          <h3>Add Subject to a Year</h3>
+          <div class="form-group">
+            <label>Year</label>
+            <select id="catYear" onchange="onCatYearChange()">
+              <option value="first">1st Year</option>
+              <option value="second">2nd Year</option>
+              <option value="third">3rd Year</option>
+              <option value="fourth">4th Year</option>
+            </select>
+          </div>
+          <div class="form-group" id="catBranchGroup" style="display:none">
+            <label>Branch</label>
+            <select id="catBranchSelect">
+              <option value="">— Select Branch —</option>
+            </select>
+          </div>
+          <div class="form-group" id="catPatternGroup" style="display:none">
+            <label>Pattern</label>
+            <select id="catPatternSelect">
+              <option value="2024 Pattern">2024 Pattern</option>
+              <option value="2019 Pattern">2019 Pattern</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Subject Name</label>
+            <input type="text" id="catSubject" placeholder="e.g. Data Structures" />
+          </div>
+          <button class="btn-primary small" onclick="addSubject()">Add Subject</button>
+          <div id="catAlert" class="alert" style="display:none;margin-top:1rem"></div>
+        </div>
+
+        <div class="cat-card">
+          <h3>Add Branch to a Year</h3>
+          <div class="form-group">
+            <label>Year</label>
+            <select id="catBYear">
+              <option value="second">2nd Year</option>
+              <option value="third">3rd Year</option>
+              <option value="fourth">4th Year</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Branch Name</label>
+            <input type="text" id="catBranch" placeholder="e.g. Robotics Engineering" />
+          </div>
+          <button class="btn-primary small" onclick="addBranch()">Add Branch</button>
+          <div id="catBAlert" class="alert" style="display:none;margin-top:1rem"></div>
+        </div>
+      </div>
+
+      <div class="cat-preview">
+        <h3>Current Structure</h3>
+        <div id="catStructure"></div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL: PREMIUM ══ -->
+    <section class="panel" id="panel-premium">
+      <div class="panel-header">
+        <h2>Premium Content Admin</h2>
+      </div>
+      <div class="upload-layout">
+        <!-- Premium Upload Form -->
+        <div class="upload-form-card">
+          <div class="alert" id="premiumAlert" style="display:none"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Product Title <span class="req">*</span></label>
+              <input type="text" id="prmSubject" placeholder="e.g., DSA Question Paper 2025" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:1.5rem;">
+            <label>Product Description</label>
+            <textarea id="prmDesc" rows="3" placeholder="Enter detailed product description..." style="width:100%; padding:.7rem 1rem; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:.9rem; outline:none; resize:vertical; margin-top:0.5rem;"></textarea>
+          </div>
+          <div class="form-group" style="margin-bottom:1.5rem;">
+            <label>Thumbnail Image URL (Optional)</label>
+            <input type="text" id="prmThumbnail" placeholder="e.g., https://example.com/thumbnail.png" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Content Type <span class="req">*</span></label>
+              <select id="prmType">
+                <option value="">— Select Type —</option>
+                <option value="pyq">PYQs</option>
+                <option value="notes">Handwritten Notes</option>
+                <option value="imp">IMP Questions</option>
+                <option value="solved">Solved Papers</option>
+                <option value="micro">Micro Project</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Actual Price (MRP) ₹</label>
+              <input type="number" id="prmOriginalPrice" placeholder="e.g. 99" min="0" />
+            </div>
+            <div class="form-group">
+              <label>Offer Price (Sell) ₹ <span class="req">*</span></label>
+              <input type="number" id="prmPrice" placeholder="e.g. 29" min="0" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Year <span class="req">*</span></label>
+              <select id="prmYear" onchange="window.onPrmYearChange && window.onPrmYearChange()">
+                <option value="">— Select Year —</option>
+                <option value="first">1st Year</option>
+                <option value="second">2nd Year</option>
+                <option value="third">3rd Year</option>
+                <option value="fourth">4th Year</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Branch <span class="req">*</span></label>
+              <select id="prmBranch" disabled onchange="window.onPrmBranchChange && window.onPrmBranchChange()">
+                <option value="">— Select Branch —</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" id="prmPatternGroup" style="display:none; margin-bottom: 1.5rem;">
+            <label>Pattern <span class="req">*</span></label>
+            <select id="prmPattern" onchange="window.onPrmPatternChange && window.onPrmPatternChange()">
+              <option value="2024 Pattern">2024 Pattern</option>
+              <option value="2019 Pattern">2019 Pattern</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label>Subject</label>
+            <select id="prmSubjectDropdown" disabled>
+              <option value="">— Select Subject —</option>
+              <option value="__custom__">+ Type custom subject…</option>
+            </select>
+          </div>
+          <div class="form-group" id="prmCustomSubjectGroup" style="display:none; margin-bottom: 1.5rem;">
+            <label>Custom Subject Name</label>
+            <input type="text" id="prmCustomSubject" placeholder="Enter subject name…" />
+          </div>
+          <div class="form-group">
+            <label>Upload Method</label>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+              <button type="button" class="btn-ghost" id="prmBtnMethodFile" onclick="setPrmUploadMethod('file')" style="flex: 1; padding: 0.6rem; font-weight: 600; border-color: var(--accent); background: rgba(99,102,241,.15); color: var(--accent);">File Upload</button>
+              <button type="button" class="btn-ghost" id="prmBtnMethodLink" onclick="setPrmUploadMethod('link')" style="flex: 1; padding: 0.6rem; font-weight: 600;">Google Drive Link</button>
+            </div>
+          </div>
+
+          <div class="form-group" id="prmFileUploadContainer">
+            <label>PDF File <span class="req">*</span></label>
+            <div class="dropzone" id="prmDropzone" onclick="document.getElementById('prmPdfInput').click()">
+              <div class="drop-icon">⬆</div>
+              <div class="drop-text">Click to select PDF or drag & drop</div>
+              <input type="file" id="prmPdfInput" accept=".pdf" style="display:none"
+                onchange="window.onPremiumFileSelect(this)" />
+            </div>
+            <div class="file-preview" id="prmFilePreview" style="display:none">
+              <span id="prmFileNameDisplay"></span>
+              <button onclick="window.clearPremiumFile()" aria-label="Clear Premium File">✕</button>
+            </div>
+          </div>
+
+          <div class="form-group" id="prmLinkUploadContainer" style="display:none">
+            <label>Google Drive / External PDF Link(s) <span class="req">*</span></label>
+            <textarea id="prmLink" rows="4" style="width:100%; padding:.7rem 1rem; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:.9rem; outline:none; transition:.2s; resize:vertical;" placeholder="e.g.&#10;https://drive.google.com/file/d/...&#10;https://drive.google.com/file/d/...&#10;(One URL per line for bulk upload)"></textarea>
+          </div>
+          <div class="upload-progress" id="prmUploadProgress" style="display:none">
+            <div class="progress-bar">
+              <div class="progress-fill" id="prmProgressFill"></div>
+            </div>
+            <span id="prmProgressText">Uploading…</span>
+          </div>
+          <button class="btn-primary" id="prmUploadBtn" onclick="window.doPremiumUpload()">Upload Premium File
+            ✨</button>
+        </div>
+
+        <!-- Premium manage list -->
+        <div class="recent-card" style="overflow-y:auto; max-height:800px;">
+          <div class="recent-header" style="display:flex; justify-content:space-between; align-items:center;">
+            Manage Premium Files
+            <button class="btn-ghost small" onclick="window.loadPremiumAdminFiles()" aria-label="Refresh Premium Files">↻</button>
+          </div>
+          <div id="premiumAdminFileList">
+            <div class="empty-state small">No premium files yet</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL: EARNINGS ══ -->
+    <section class="panel" id="panel-earnings">
+      <div class="panel-header">
+        <h2>Sales & Earnings Analytics</h2>
+        <button class="btn-ghost" onclick="window.loadEarningsAnalytics()">↻ Refresh</button>
+      </div>
+      
+      <div class="stats-row" style="margin-bottom: 2rem;">
+        <div class="stat-card" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2);">
+          <div class="stat-val" id="totalEarningsVal" style="color: #10b981;">₹0</div>
+          <div class="stat-lbl">Total Revenue</div>
+        </div>
+        <div class="stat-card" style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2);">
+          <div class="stat-val" id="totalSalesVal" style="color: var(--accent);">0</div>
+          <div class="stat-lbl">Total Sales</div>
+        </div>
+      </div>
+
+      <div class="recent-card">
+        <div class="recent-header">Recent Purchases</div>
+        <div id="earningsList">
+          <div class="empty-state small">No sales yet. Keep going!</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL: FEEDBACK ══ -->
+    <section class="panel" id="panel-feedback">
+      <div class="panel-header">
+        <h2>User Feedback</h2>
+        <button class="btn-ghost" onclick="loadFeedback()">↻ Refresh</button>
+      </div>
+      <div id="adminFeedbackList"></div>
+    </section>
+
+    <!-- ══ PANEL: STUDENTS ══ -->
+    <section class="panel" id="panel-students">
+      <div class="panel-header">
+        <h2>Student Accounts / Activity</h2>
+        <button class="btn-ghost" onclick="window.loadAdminStudents()">↻ Refresh</button>
+      </div>
+      <div class="table-card">
+        <div id="adminStudentList">
+          <div class="empty-state">Loading students…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL: REQUESTS ══ -->
+    <section class="panel" id="panel-requests">
+      <div class="panel-header">
+        <h2>Pending Premium Requests</h2>
+        <button class="btn-ghost" onclick="window.loadPremiumRequests()">↻ Refresh</button>
+      </div>
+      <div class="table-card">
+        <div id="premiumRequestList">
+          <div class="empty-state">Loading requests…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL: PASSWORD ══ -->
+    <section class="panel" id="panel-password">
+      <div class="panel-header">
+        <h2>Change Password</h2>
+      </div>
+      <div class="narrow-form">
+        <div class="alert" id="pwAlert" style="display:none"></div>
+        <div class="form-group">
+          <label>Current Password</label>
+          <input type="password" id="pwCurrent" placeholder="••••••••" />
+        </div>
+        <div class="form-group">
+          <label>New Password</label>
+          <input type="password" id="pwNew" placeholder="Minimum 8 characters" />
+        </div>
+        <div class="form-group">
+          <label>Confirm New Password</label>
+          <input type="password" id="pwConfirm" placeholder="Repeat new password" />
+        </div>
+        <button class="btn-primary" onclick="doChangePassword()">Update Password</button>
+      </div>
+    </section>
+
+    <!-- ══ PANEL: BANNER ══ -->
+    <section class="panel" id="panel-banner">
+      <div class="panel-header">
+        <h2>Notice Banner Configuration</h2>
+      </div>
+      <div class="narrow-form">
+        <div class="alert" id="bannerAlert" style="display:none"></div>
+        
+        <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: var(--surface2); padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
+          <div>
+            <label style="margin-bottom: 0; font-size: 1.1rem;">Enable Banner</label>
+            <div style="font-size: 0.85rem; color: var(--muted); margin-top: 0.2rem;">Show notice banner on top of the website.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="bannerIsActive">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-top: 1.5rem;">
+          <label>Banner Text <span class="req">*</span></label>
+          <input type="text" id="bannerText" placeholder="e.g. Important Notice: Exams starting soon!" />
+        </div>
+        
+        <div class="form-group">
+          <label>Banner Link (Optional)</label>
+          <input type="url" id="bannerLink" placeholder="e.g. https://example.com/notice" />
+          <div style="font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem;">Make the banner clickable and redirect users to this URL.</div>
+        </div>
+
+        <button class="btn-primary" onclick="saveBannerConfig()">Save Banner Settings</button>
+      </div>
+    </section>
+
+    <!-- ══ PANEL: TELEGRAM PROMOS ══ -->
+    <section class="panel" id="panel-telegram-promo">
+      <div class="panel-header">
+        <h2>Year Cards Telegram Promos Configuration</h2>
+        <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem;">Control Year Card click popup and browser panel banners to increase student group members.</p>
+      </div>
+      <div class="narrow-form">
+        <div class="alert" id="tgPromoAlert" style="display:none"></div>
+
+        <!-- 1. Year Card Click Popup (Modal) -->
+        <div style="background: var(--surface2); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 1.5rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <div>
+              <label style="margin-bottom: 0; font-size: 1.1rem; font-weight: 700;">1. Year Card Click Popup (Modal)</label>
+              <div style="font-size: 0.85rem; color: var(--muted); margin-top: 0.2rem;">Shows a high-converting popup when a student clicks on 1st, 2nd, 3rd, or 4th Year cards.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="tgPopupEnabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label>Popup Title <span style="font-weight: normal; color: var(--muted); font-size: 0.8rem;">(use <code>{year}</code> for dynamic year name)</span></label>
+            <input type="text" id="tgPopupTitle" placeholder="e.g. Join {year} SPPU Telegram Community" />
+          </div>
+
+          <div class="form-group">
+            <label>Popup Description</label>
+            <textarea id="tgPopupText" rows="3" class="input-field" style="width: 100%; box-sizing: border-box; resize: vertical;" placeholder="e.g. Get In-Sem & End-Sem IMP Questions, Handwritten Notes, Solved Papers and Exam Alerts directly on Telegram!"></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Join Button Text</label>
+              <input type="text" id="tgPopupButtonText" placeholder="e.g. 🚀 Join Telegram Group" />
+            </div>
+            <div class="form-group">
+              <label>Continue Button Text</label>
+              <input type="text" id="tgPopupContinueText" placeholder="e.g. Continue to Papers →" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Browser Panel Banner -->
+        <div style="background: var(--surface2); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 1.5rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <div>
+              <label style="margin-bottom: 0; font-size: 1.1rem; font-weight: 700;">2. Browser Panel Banner</label>
+              <div style="font-size: 0.85rem; color: var(--muted); margin-top: 0.2rem;">Shows a prominent banner card above Branch/Subject selection.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="tgBannerEnabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label>Banner Text <span style="font-weight: normal; color: var(--muted); font-size: 0.8rem;">(use <code>{year}</code> for dynamic year name)</span></label>
+            <input type="text" id="tgBannerText" placeholder="e.g. 📢 {year} SPPU Discussion & IMPs Group" />
+          </div>
+
+          <div class="form-group">
+            <label>Banner Button Text</label>
+            <input type="text" id="tgBannerButtonText" placeholder="e.g. Join Telegram ↗" />
+          </div>
+        </div>
+
+        <!-- 3. Telegram Group Links -->
+        <div style="background: var(--surface2); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 1.5rem;">
+          <label style="margin-bottom: 0.5rem; font-size: 1.1rem; font-weight: 700; display: block;">3. Telegram Links</label>
+          <div style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem;">Specify the main group link, and optional year-specific group links if you have separate groups.</div>
+
+          <div class="form-group">
+            <label>Main / Default Telegram Link <span class="req">*</span></label>
+            <input type="url" id="tgDefaultUrl" placeholder="https://t.me/sppuvault_support_bot" />
+            <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem;">Used if year-specific link is not provided.</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>1st Year (FE) Link (Optional)</label>
+              <input type="url" id="tgFirstYearUrl" placeholder="https://t.me/sppu_fe_group" />
+            </div>
+            <div class="form-group">
+              <label>2nd Year (SE) Link (Optional)</label>
+              <input type="url" id="tgSecondYearUrl" placeholder="https://t.me/sppu_se_group" />
+            </div>
+            <div class="form-group">
+              <label>3rd Year (TE) Link (Optional)</label>
+              <input type="url" id="tgThirdYearUrl" placeholder="https://t.me/sppu_te_group" />
+            </div>
+            <div class="form-group">
+              <label>4th Year (BE) Link (Optional)</label>
+              <input type="url" id="tgFourthYearUrl" placeholder="https://t.me/sppu_be_group" />
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-primary" onclick="saveTelegramPromoConfig()" style="width: 100%; padding: 0.9rem; font-size: 1rem;">Save Telegram Promo Settings</button>
+      </div>
+    </section>
+
+  <!-- ── EDIT PREMIUM FILE MODAL ── -->
+  <div class="modal-overlay" id="editPremiumModal" style="display:none">
+    <div class="modal" style="max-width: 580px; text-align: left; max-height: 90vh; overflow-y: auto;">
+      <h3 style="margin-top: 0; font-family:'Syne',sans-serif; color:var(--text);">Edit Premium File ✏️</h3>
+      <input type="hidden" id="editPrmId" />
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>Product Title <span class="req">*</span></label>
+        <input type="text" id="editPrmTitle" class="input-field" placeholder="Product Title" style="width:100%; box-sizing:border-box;" />
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>Product Description</label>
+        <textarea id="editPrmDesc" rows="3" style="width:100%; padding:.7rem 1rem; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:.9rem; outline:none; transition:.2s; resize:vertical; box-sizing:border-box;" placeholder="Description…"></textarea>
+      </div>
+
+      <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom: 1rem;">
+        <div class="form-group">
+          <label>Actual Price (MRP) ₹</label>
+          <input type="number" id="editPrmOriginalPrice" class="input-field" placeholder="e.g. 99" min="0" style="width:100%; box-sizing:border-box;" />
+        </div>
+        <div class="form-group">
+          <label>Offer Price (Sell) ₹ <span class="req">*</span></label>
+          <input type="number" id="editPrmPrice" class="input-field" placeholder="e.g. 29" min="0" style="width:100%; box-sizing:border-box;" />
+        </div>
+      </div>
+
+      <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom: 1rem;">
+        <div class="form-group">
+          <label>Content Type <span class="req">*</span></label>
+          <select id="editPrmType" class="input-field" style="width:100%; box-sizing:border-box;">
+            <option value="pyq">PYQ</option>
+            <option value="notes">Notes</option>
+            <option value="imp">IMP Questions</option>
+            <option value="solved">Solved Paper</option>
+            <option value="micro">Micro Notes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Year <span class="req">*</span></label>
+          <select id="editPrmYear" class="input-field" style="width:100%; box-sizing:border-box;">
+            <option value="first">1st Year</option>
+            <option value="second">2nd Year</option>
+            <option value="third">3rd Year</option>
+            <option value="fourth">4th Year</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>Branch <span class="req">*</span></label>
+        <input type="text" id="editPrmBranch" class="input-field" placeholder="e.g. FE, Computer Engineering, all, etc." style="width:100%; box-sizing:border-box;" />
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>Thumbnail Image URL (Optional)</label>
+        <input type="text" id="editPrmThumbnail" class="input-field" placeholder="https://example.com/thumbnail.png" style="width:100%; box-sizing:border-box;" />
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>PDF URL / Google Drive Link</label>
+        <input type="text" id="editPrmPdfUrl" class="input-field" placeholder="https://..." style="width:100%; box-sizing:border-box;" />
+      </div>
+
+      <div id="editPrmAlert" class="alert" style="display:none; margin-top: 1rem;"></div>
+
+      <div class="modal-actions" style="margin-top: 1.5rem; justify-content: flex-end; display:flex; gap:0.6rem;">
+        <button class="btn-ghost" onclick="closeEditPremiumModal()">Cancel</button>
+        <button class="btn-primary" id="saveEditPrmBtn" onclick="saveEditPremium()">Save Changes ✨</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DELETE CONFIRM MODAL ── -->
+  <div class="modal-overlay" id="deleteModal" style="display:none">
+    <div class="modal">
+      <div class="modal-icon">⚠</div>
+      <h3>Delete Paper?</h3>
+      <p id="deleteModalText">This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+        <button class="btn-danger" id="confirmDeleteBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DOWNLOAD GATE SETTINGS MODAL ── -->
+  <div class="modal-overlay" id="gateModal" style="display:none">
+    <div class="modal" style="max-width: 500px; text-align: left;">
+      <h3 style="margin-top: 0;">Download Gate Settings</h3>
+      <p id="gateModalText" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem;"></p>
+      
+      <div class="form-group">
+        <label>Gate Type</label>
+        <select id="gateType" class="input-field" onchange="toggleGateFields()">
+          <option value="none">Direct Download (No Gate)</option>
+          <option value="whatsapp">WhatsApp Required</option>
+          <option value="telegram">Telegram Required</option>
+          <option value="both">WhatsApp + Telegram Required</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="gateWaGroup" style="display:none">
+        <label>WhatsApp Group Link</label>
+        <input type="url" id="gateWaUrl" class="input-field" placeholder="https://chat.whatsapp.com/...">
+      </div>
+
+      <div class="form-group" id="gateTgGroup" style="display:none">
+        <label>Telegram Group Link</label>
+        <input type="url" id="gateTgUrl" class="input-field" placeholder="https://t.me/...">
+      </div>
+
+      <div id="gateAlert" class="alert" style="display:none; margin-top: 1rem;"></div>
+
+      <div class="modal-actions" style="margin-top: 1.5rem; justify-content: flex-end;">
+        <button class="btn-ghost" onclick="closeGateModal()">Cancel</button>
+        <button class="btn-primary" id="saveGateBtn" onclick="saveGateSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ATTACH / VIEW SOLUTION MODAL ── -->
+  <div class="modal-overlay" id="solutionModal" style="display:none">
+    <div class="modal" style="max-width: 520px; text-align: left;">
+      <h3 style="margin-top: 0; font-family:'Syne',sans-serif; color:var(--text);" id="solModalHeader">Paper Solution</h3>
+      <p id="solModalPaperName" style="color: var(--accent); font-weight: 600; font-size: 0.95rem; margin-bottom: 1rem;"></p>
+
+      <div id="solCurrentStatus" style="margin-bottom:1rem; padding:0.8rem; background:var(--surface2); border-radius:8px; border:1px solid var(--border); font-size:0.88rem;"></div>
+
+      <div class="form-group">
+        <label>Solution Upload Method</label>
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.8rem;">
+          <button type="button" class="btn-ghost" id="modalBtnSolFile" onclick="setModalSolutionMethod('file')" style="flex: 1; padding: 0.5rem; font-weight: 600; border-color: var(--accent); background: rgba(99,102,241,.15); color: var(--accent);">📄 File Upload</button>
+          <button type="button" class="btn-ghost" id="modalBtnSolLink" onclick="setModalSolutionMethod('link')" style="flex: 1; padding: 0.5rem; font-weight: 600;">🔗 Google Drive / URL</button>
+        </div>
+      </div>
+
+      <div class="form-group" id="modalSolFileWrap">
+        <label>Solution PDF File</label>
+        <div class="dropzone" id="modalSolDropzone" onclick="document.getElementById('modalSolPdfInput').click()">
+          <div class="drop-icon">⬆</div>
+          <div class="drop-text" id="modalSolDropText">Click to select Solution PDF</div>
+          <input type="file" id="modalSolPdfInput" accept=".pdf" style="display:none" onchange="onModalSolFileSelect(this)" />
+        </div>
+      </div>
+
+      <div class="form-group" id="modalSolLinkWrap" style="display:none">
+        <label>Google Drive or External PDF Link</label>
+        <input type="url" id="modalSolLinkInput" class="input-field" placeholder="https://drive.google.com/file/d/..." style="width:100%; box-sizing:border-box;">
+      </div>
+
+      <div class="form-group">
+        <label>Custom Solution Title (Optional)</label>
+        <input type="text" id="modalSolTitleInput" class="input-field" placeholder="e.g. Solution_Final.pdf" style="width:100%; box-sizing:border-box;">
+      </div>
+
+      <div id="solModalAlert" class="alert" style="display:none; margin-top: 1rem;"></div>
+
+      <div class="modal-actions" style="margin-top: 1.5rem; justify-content: space-between; align-items:center;">
+        <button class="btn-del" id="btnRemoveSolution" onclick="doRemoveSolution()" style="display:none;">Remove Solution</button>
+        <div style="display:flex; gap:0.5rem; margin-left:auto;">
+          <button class="btn-ghost" onclick="closeSolutionModal()">Cancel</button>
+          <button class="btn-primary" id="saveSolutionBtn" onclick="doSaveModalSolution()">Save Solution</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js?v=2.0.8"></script>
+</body>
+
+</html>

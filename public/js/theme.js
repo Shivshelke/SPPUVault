@@ -1,0 +1,32 @@
+const savedTheme = localStorage.getItem('theme') || 'light';
+document.documentElement.setAttribute('data-theme', savedTheme);
+
+window.toggleTheme = function() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  updateThemeIcons(next);
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  updateThemeIcons(document.documentElement.getAttribute('data-theme'));
+});
+
+function updateThemeIcons(theme) {
+  const icons = document.querySelectorAll('.theme-icon');
+  icons.forEach(icon => {
+    // Add animation class
+    icon.classList.add('theme-spin');
+    
+    // Change icon halfway through animation (150ms)
+    setTimeout(() => {
+      icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+    }, 150);
+    
+    // Remove animation class after it completes (300ms)
+    setTimeout(() => {
+      icon.classList.remove('theme-spin');
+    }, 300);
+  });
+}

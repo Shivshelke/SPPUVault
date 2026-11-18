@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "include": [
+    "/api/*",
+    "/admin/*",
+    "/student/*",
+    "/auth/*"
+  ],
+  "exclude": [
+    "/css/*",
+    "/js/*",
+    "/fonts/*",
+    "/img/*",
+    "/assets/*",
+    "/*.html",
+    "/favicon.ico",
+    "/robots.txt",
+    "/sitemap.xml",
+    "/manifest.json",
+    "/sw.js"
+  ]
+}

@@ -1,0 +1,796 @@
+/**
+ * routes/admin.js — MongoDB + Cloudinary version
+ */
+require('dotenv').config();
+const express = require('express');
+const { sendEmail } = require('../utils/email');
+const multer = require('multer');
+const { v2: cloudinary } = require('cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const { requireAdmin } = require('../middleware/auth');
+const router = express.Router();
+const File = require('../models/File');
+const Product = require('../models/Product');
+const Purchase = require('../models/Purchase');
+const Feedback = require('../models/Feedback');
+const Student = require('../models/Student');
+const Banner = require('../models/Banner');
+const TelegramPromo = require('../models/TelegramPromo');
+
+// ── Cloudinary config ─────────────────────────────────────────────────────────
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// ── Multer + Cloudinary storage ───────────────────────────────────────────────
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => {
+    const { year, branch, subject, title, contentType, semester } = req.body;
+    
+    // Sanitize function to remove invalid characters for Cloudinary (spaces, &, etc.)
+    const sanitize = (str) => {
+      if (!str) return '';
+      return str.toString().replace(/[^a-zA-Z0-9_-]/g, '_');
+    };
+
+    const sYear = sanitize(year);
+    const sBranch = sanitize(branch);
+    const sSemester = sanitize(semester);
+    const sContent = sanitize(contentType);
+    
+    // Fallback to subject if title is not present (for old upload form)
+    const fileTitle = title || subject || 'document';
+    const sTitle = sanitize(fileTitle);
+
+    let folder = 'synapse/misc';
+
+    if (contentType && contentType !== 'regular') {
+      folder = `synapse/premium/${sContent}/${sYear}/${sBranch}`;
+      if (semester) folder += `/${sSemester}`;
+    } else {
+      folder = `synapse/${sYear}/${sBranch}`;
+      if (semester) folder += `/${sSemester}`;
+    }
+
+    return {
+      folder,
+      resource_type: 'image',
+      format: 'pdf',
+      public_id: `${sTitle}_${Date.now()}`
+    };
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    file.mimetype === 'application/pdf' ? cb(null, true) : cb(new Error('Only PDFs allowed.'));
+  }
+});
+
+router.use(requireAdmin);
+
+// GET /admin/dashboard
+router.get('/dashboard', (req, res) => {
+  const path = require('path');
+  res.sendFile(path.join(__dirname, '../public/dashboard.html'));
+});
+
+
+
+// POST /admin/upload
+router.post('/upload', (req, res) => {
+  upload.single('pdf')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    const { year, branch, subject, customSubject, contentType, semester, isLink, linkUrl, customFileName, pattern } = req.body;
+    
+    const finalSubject = customSubject && customSubject.trim() ? customSubject.trim() : subject;
+    
+    if (isLink === 'true') {
+      if (!linkUrl) return res.status(400).json({ error: 'Link URL required.' });
+      
+      const urls = linkUrl.split(/[\r\n,]+/).map(u => u.trim()).filter(Boolean);
+      if (!urls.length) return res.status(400).json({ error: 'At least one valid URL is required.' });
+      
+      const promises = urls.map((url, i) => {
+        let fileName = '';
+        if (urls.length === 1 && customFileName && customFileName.trim()) {
+          fileName = customFileName.trim();
+        } else {
+          fileName = `${finalSubject || 'document'}${urls.length > 1 ? '_' + (i + 1) : ''}.pdf`;
+        }
+        
+        const record = {
+          originalName: fileName,
+          storedName: `google-drive_${Date.now()}_${i}`,
+          year: year || 'any',
+          branch: branch || 'any',
+          subject: finalSubject,
+          semester: semester || 'any',
+          size: 0,
+          uploadedBy: req.session.adminUser,
+          url: url,
+          publicId: `google-drive_${Date.now()}_${i}`,
+          contentType: contentType || 'regular',
+          pattern: pattern || '2024'
+        };
+        return File.create(record);
+      });
+      
+      const savedRecords = await Promise.all(promises);
+      return res.json({ success: true, files: savedRecords });
+    } else {
+      if (!req.file) return res.status(400).json({ error: 'File required.' });
+      
+      const record = {
+        originalName: req.file.originalname,
+        storedName: req.file.filename || req.file.public_id,
+        year: year || 'any',
+        branch: branch || 'any',
+        subject: finalSubject,
+        semester: semester || 'any',
+        size: req.file.size || 0,
+        uploadedBy: req.session.adminUser,
+        url: req.file.path,
+        publicId: req.file.filename || req.file.public_id,
+        contentType: contentType || 'regular',
+        pattern: pattern || '2024'
+      };
+      
+      const saved = await File.create(record);
+      return res.json({ success: true, file: saved });
+    }
+  });
+});
+
+// GET /admin/subject-papers (Get papers for a subject to attach solution)
+router.get('/subject-papers', async (req, res) => {
+  try {
+    const { year, branch, subject } = req.query;
+    const query = { contentType: 'regular' };
+    if (year) query.year = year;
+    if (branch && branch !== 'any' && branch !== 'FE') query.branch = branch;
+    if (subject && subject !== '__custom__') query.subject = subject;
+    const files = await File.find(query, '_id originalName subject pattern year branch semester isPinned solutionUrl solutionType solutionOriginalName').sort({ isPinned: -1, uploadDate: -1 }).lean();
+    res.json(files);
+  } catch (e) {
+    console.error('Error fetching subject papers:', e);
+    res.status(500).json({ error: 'Failed to fetch subject papers' });
+  }
+});
+
+// POST /admin/upload-solution (Upload file or link solution to a question paper)
+router.post('/upload-solution', (req, res) => {
+  upload.single('solutionPdf')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    try {
+      const { paperId, solutionType, solutionLink, solutionTitle } = req.body;
+      if (!paperId) return res.status(400).json({ error: 'Please select a target question paper.' });
+
+      const fileDoc = await File.findById(paperId);
+      if (!fileDoc) return res.status(404).json({ error: 'Target question paper not found.' });
+
+      if (solutionType === 'link') {
+        if (!solutionLink || !solutionLink.trim()) {
+          return res.status(400).json({ error: 'Solution link URL is required.' });
+        }
+        const url = solutionLink.trim();
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          return res.status(400).json({ error: 'Link must start with http:// or https://' });
+        }
+        fileDoc.solutionUrl = url;
+        fileDoc.solutionType = 'link';
+        fileDoc.solutionOriginalName = solutionTitle && solutionTitle.trim() ? solutionTitle.trim() : `${fileDoc.subject || 'Paper'}_Solution.pdf`;
+        fileDoc.solutionUploadDate = new Date();
+      } else {
+        if (!req.file) return res.status(400).json({ error: 'Solution PDF file is required.' });
+        fileDoc.solutionUrl = req.file.path;
+        fileDoc.solutionType = 'file';
+        fileDoc.solutionOriginalName = solutionTitle && solutionTitle.trim() ? solutionTitle.trim() : req.file.originalname;
+        fileDoc.solutionPublicId = req.file.filename || req.file.public_id;
+        fileDoc.solutionUploadDate = new Date();
+      }
+
+      await fileDoc.save();
+      return res.json({ success: true, file: fileDoc });
+    } catch (e) {
+      console.error('Upload solution error:', e);
+      return res.status(500).json({ error: 'Server error uploading solution' });
+    }
+  });
+});
+
+// DELETE /admin/files/:id/solution (Remove solution from paper)
+router.delete('/files/:id/solution', async (req, res) => {
+  try {
+    const fileDoc = await File.findById(req.params.id);
+    if (!fileDoc) return res.status(404).json({ error: 'File not found' });
+    fileDoc.solutionUrl = '';
+    fileDoc.solutionType = 'none';
+    fileDoc.solutionOriginalName = '';
+    fileDoc.solutionPublicId = '';
+    fileDoc.solutionUploadDate = null;
+    await fileDoc.save();
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to remove solution' });
+  }
+});
+
+// POST /admin/product (Marketplace upload)
+router.post('/product', (req, res) => {
+  try {
+    upload.single('pdf')(req, res, async (err) => {
+      if (err) {
+        console.error("Multer error:", err);
+        return res.status(400).json({ error: err.message });
+      }
+      try {
+        const { year, branch, title, contentType, price, originalPrice, isLink, linkUrl, description, thumbnailUrl: customThumb } = req.body;
+        
+        // Generate unique SEO slug
+        const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
+        
+        let pdfUrl, previewUrl, thumbnailUrl;
+        
+        if (isLink === 'true') {
+          if (!linkUrl) return res.status(400).json({ error: 'Link URL required.' });
+          pdfUrl = linkUrl;
+          previewUrl = customThumb || 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=800&q=80';
+          thumbnailUrl = customThumb || 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&q=80';
+        } else {
+          if (!req.file) return res.status(400).json({ error: 'File required.' });
+          pdfUrl = req.file.path;
+          const publicId = req.file.filename || req.file.public_id;
+          previewUrl = customThumb || cloudinary.url(`${publicId}.jpg`, { page: 1, secure: true });
+          thumbnailUrl = customThumb || cloudinary.url(`${publicId}.jpg`, { page: 1, width: 400, crop: 'scale', secure: true });
+        }
+
+        const product = await Product.create({
+          title,
+          slug,
+          description: description || 'Premium material for SPPU students.',
+          price: Number(price),
+          originalPrice: originalPrice ? Number(originalPrice) : null,
+          contentType: contentType,
+          year: year,
+          branch: branch,
+          pdfUrl: pdfUrl,
+          previewUrl: previewUrl,
+          thumbnailUrl: thumbnailUrl,
+          isPublished: true
+        });
+        res.json({ success: true, product });
+      } catch (e) {
+        console.error("Product create error:", e);
+        res.status(500).json({ error: 'Failed to create product: ' + e.message });
+      }
+    });
+  } catch (outerErr) {
+    console.error("Outer error in /admin/product:", outerErr);
+    res.status(500).json({ error: 'Server crashed: ' + outerErr.message });
+  }
+});
+
+// DELETE /admin/files/:id
+router.delete('/files/:id', async (req, res) => {
+  const file = await File.findById(req.params.id);
+  if (!file) return res.status(404).json({ error: 'File not found.' });
+
+  try {
+    if (file.publicId && !file.publicId.startsWith('google-drive')) {
+      await cloudinary.uploader.destroy(file.publicId, { resource_type: 'raw' });
+    }
+  } catch (e) { }
+  await File.deleteOne({ _id: req.params.id });
+  res.json({ success: true });
+});
+
+// PUT /admin/files/:id/gate
+router.put('/files/:id/gate', async (req, res) => {
+  const { enabled, type, whatsappUrl, telegramUrl } = req.body;
+  try {
+    const file = await File.findById(req.params.id);
+    if (!file) return res.status(404).json({ error: 'File not found.' });
+
+    file.downloadGate = { enabled, type, whatsappUrl, telegramUrl };
+    await file.save();
+    res.json({ success: true, file });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PUT /admin/files/:id/pin
+router.put('/files/:id/pin', async (req, res) => {
+  try {
+    const file = await File.findById(req.params.id);
+    if (!file) return res.status(404).json({ error: 'File not found.' });
+
+    file.isPinned = !file.isPinned;
+    await file.save();
+    res.json({ success: true, isPinned: file.isPinned });
+  } catch (e) {
+    console.error('Error toggling pin:', e);
+    res.status(500).json({ error: 'Failed to toggle pin status.' });
+  }
+});
+
+// GET /admin/files
+router.get('/files', async (req, res) => {
+  const { contentType, year, search } = req.query;
+  const query = contentType
+    ? { contentType }
+    : { contentType: 'regular' };
+  if (year) query.year = year;
+  if (search) {
+    const r = new RegExp(search, 'i');
+    query.$or = [{ originalName: r }, { subject: r }, { branch: r }];
+  }
+  const files = await File.find(query).sort({ isPinned: -1, uploadDate: -1 });
+  res.json(files);
+});
+
+// GET /admin/feedback
+router.get('/feedback', async (req, res) => {
+  const list = await Feedback.find().sort({ date: -1 });
+  res.json(list);
+});
+
+// DELETE /admin/feedback/:id
+router.delete('/feedback/:id', async (req, res) => {
+  await Feedback.deleteOne({ _id: req.params.id });
+  res.json({ success: true });
+});
+
+// GET /admin/premium-files
+router.get('/premium-files', async (req, res) => {
+  try {
+    const products = await Product.find({}).sort({ isPinned: -1, createdAt: -1 });
+    res.json(products);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load products' });
+  }
+});
+
+// PUT /admin/product/:id/pin
+router.put('/product/:id/pin', async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    product.isPinned = !product.isPinned;
+    await product.save();
+    res.json({ success: true, isPinned: product.isPinned });
+  } catch (e) {
+    console.error('Failed to toggle pin for product:', e);
+    res.status(500).json({ error: 'Failed to toggle pin: ' + e.message });
+  }
+});
+
+// GET /admin/product/:id
+router.get('/product/:id', async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    res.json(product);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch product' });
+  }
+});
+
+// PUT /admin/product/:id
+router.put('/product/:id', async (req, res) => {
+  try {
+    const { title, description, price, originalPrice, contentType, year, branch, thumbnailUrl, pdfUrl } = req.body;
+    
+    const updateData = {};
+    if (title !== undefined) updateData.title = title.trim();
+    if (description !== undefined) updateData.description = description.trim();
+    if (price !== undefined) updateData.price = Number(price);
+    if (originalPrice !== undefined) updateData.originalPrice = originalPrice ? Number(originalPrice) : null;
+    if (contentType !== undefined) updateData.contentType = contentType;
+    if (year !== undefined) updateData.year = year;
+    if (branch !== undefined) updateData.branch = branch.trim();
+    if (thumbnailUrl !== undefined) updateData.thumbnailUrl = thumbnailUrl.trim();
+    if (pdfUrl !== undefined) updateData.pdfUrl = pdfUrl.trim();
+
+    const product = await Product.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    res.json({ success: true, product });
+  } catch (e) {
+    console.error("Failed to update product:", e);
+    res.status(500).json({ error: 'Failed to update product: ' + e.message });
+  }
+});
+
+// DELETE /admin/product/:id
+router.delete('/product/:id', async (req, res) => {
+  try {
+    await Product.deleteOne({ _id: req.params.id });
+    res.json({ success: true });
+  } catch (e) {
+    console.error("Failed to delete product:", e);
+    res.status(500).json({ error: 'Failed to delete product' });
+  }
+});
+
+const CategoryConfig = require('../models/CategoryConfig');
+
+// POST /admin/config/subject
+router.post('/config/subject', async (req, res) => {
+  const { year, branch, subject, pattern } = req.body;
+  if (!year || !subject || !subject.trim()) {
+    return res.status(400).json({ error: 'Year and Subject are required.' });
+  }
+
+  if (year !== 'first') {
+    if (!branch) {
+      return res.status(400).json({ error: 'Branch is required for 2nd, 3rd, and 4th Year.' });
+    }
+    if (!pattern) {
+      return res.status(400).json({ error: 'Pattern is required for 2nd, 3rd, and 4th Year.' });
+    }
+  }
+
+  try {
+    let doc = await CategoryConfig.findOne({ key: 'years_config' });
+    if (!doc) {
+      doc = new CategoryConfig({ key: 'years_config' });
+    }
+
+    const yearData = doc.years[year];
+    if (!yearData) return res.status(400).json({ error: 'Invalid year.' });
+
+    const cleanBranch = branch ? branch.trim() : '';
+    const cleanPattern = pattern ? pattern.trim() : '';
+
+    const subjectsArray = subject.split(',').map(s => s.trim()).filter(Boolean);
+
+    for (const cleanSubject of subjectsArray) {
+      if (year === 'first') {
+        if (!Array.isArray(yearData.subjects)) {
+          yearData.subjects = [];
+        }
+        if (!yearData.subjects.includes(cleanSubject)) {
+          yearData.subjects.push(cleanSubject);
+        }
+      } else {
+        if (!yearData.subjects || typeof yearData.subjects !== 'object' || Array.isArray(yearData.subjects)) {
+          yearData.subjects = {};
+        }
+        if (!yearData.subjects[cleanBranch]) {
+          yearData.subjects[cleanBranch] = {};
+        }
+        if (Array.isArray(yearData.subjects[cleanBranch])) {
+          const oldSubjects = yearData.subjects[cleanBranch];
+          yearData.subjects[cleanBranch] = {
+            "2024 Pattern": oldSubjects,
+            "2019 Pattern": []
+          };
+        }
+        if (!yearData.subjects[cleanBranch][cleanPattern]) {
+          yearData.subjects[cleanBranch][cleanPattern] = [];
+        }
+        if (!yearData.subjects[cleanBranch][cleanPattern].includes(cleanSubject)) {
+          yearData.subjects[cleanBranch][cleanPattern].push(cleanSubject);
+        }
+      }
+    }
+
+    doc.markModified('years');
+    await doc.save();
+    res.json({ success: true, count: subjectsArray.length });
+  } catch (e) {
+    console.error('Error saving subject config:', e);
+    res.status(500).json({ error: 'Database save error.' });
+  }
+});
+
+router.delete('/config/subject', (req, res) => res.json({ success: true }));
+
+// POST /admin/config/branch
+router.post('/config/branch', async (req, res) => {
+  const { year, branch } = req.body;
+  if (!year || !branch || !branch.trim()) {
+    return res.status(400).json({ error: 'Year and Branch are required.' });
+  }
+
+  try {
+    let doc = await CategoryConfig.findOne({ key: 'years_config' });
+    if (!doc) {
+      doc = new CategoryConfig({ key: 'years_config' });
+    }
+
+    const yearData = doc.years[year];
+    if (!yearData) return res.status(400).json({ error: 'Invalid year.' });
+
+    const cleanBranch = branch.trim();
+    if (!yearData.branches.includes(cleanBranch)) {
+      yearData.branches.push(cleanBranch);
+    }
+
+    doc.markModified('years');
+    await doc.save();
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Error saving branch config:', e);
+    res.status(500).json({ error: 'Database save error.' });
+  }
+});
+
+// GET /admin/premium-requests — always returns ALL pending requests
+router.get('/premium-requests', async (req, res) => {
+  const requests = await Student.find({ premiumStatus: 'pending' }, '-password').sort({ requestedAt: -1 });
+  res.json(requests);
+});
+
+// POST /admin/premium-requests/mark-seen
+router.post('/premium-requests/mark-seen', async (req, res) => {
+  try {
+    await Student.updateMany({ premiumStatus: 'pending', requestSeen: false }, { requestSeen: true });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to mark as seen.' });
+  }
+});
+
+// POST /admin/approve-premium/:id
+router.post('/approve-premium/:id', async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ error: 'Student not found.' });
+
+    student.isPremium = true;
+    student.premiumStatus = 'active';
+    await student.save();
+
+    // Send Email Notification via Resend
+    if (process.env.RESEND_API_KEY) {
+      await sendEmail({
+        to: student.email,
+        subject: '🚀 Your Premium Access is Active! - SPPUVault',
+        html: `
+          <div style="background-color: #0f172a; padding: 40px 20px; font-family: 'Inter', system-ui, -apple-system, sans-serif;">
+            <div style="max-width: 500px; margin: 0 auto; background: #1e293b; border-radius: 20px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+              <div style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 30px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em;">SPPUVAULT PREMIUM</h1>
+              </div>
+              <div style="padding: 40px 30px; text-align: center;">
+                <div style="color: #94a3b8; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Access Granted</div>
+                <h2 style="color: white; margin: 0 0 20px 0; font-size: 28px; font-weight: 700;">Welcome to the Inner Circle, @${student.username}!</h2>
+                <p style="color: #94a3b8; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
+                  Your request for <b>Premium Access</b> has been verified and approved. You now have unlimited access to all exclusive PYQs, detailed notes, and premium features.
+                </p>
+                <a href="${process.env.APP_URL || 'https://sppuvault.com'}" style="display: inline-block; background: #6366f1; color: white; padding: 16px 32px; border-radius: 12px; font-weight: 600; text-decoration: none; transition: all 0.2s;">
+                  Start Learning Now
+                </a>
+                <div style="margin-top: 40px; padding-top: 25px; border-top: 1px solid #334155;">
+                  <p style="color: #64748b; font-size: 13px; margin: 0;">
+                    Unleash your potential with SPPUVault.<br>
+                    Keep learning, keep growing.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `
+      }).catch(err => console.error('[Resend Error]', err));
+    }
+
+    res.json({ success: true, message: 'Student approved and notified!' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to approve student.' });
+  }
+});
+
+// POST /admin/reject-premium/:id
+router.post('/reject-premium/:id', async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ error: 'Student not found.' });
+
+    student.premiumStatus = 'none';
+    await student.save();
+
+    // Send Email Notification via Resend
+    if (process.env.RESEND_API_KEY) {
+      await sendEmail({
+        to: student.email,
+        subject: 'Update on your Premium Request - SPPUVault',
+        html: `
+          <div style="background-color: #0f172a; padding: 40px 20px; font-family: 'Inter', system-ui, -apple-system, sans-serif;">
+            <div style="max-width: 500px; margin: 0 auto; background: #1e293b; border-radius: 20px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+              <div style="background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); padding: 30px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em;">PREMIUM REQUEST</h1>
+              </div>
+              <div style="padding: 40px 30px; text-align: center;">
+                <div style="color: #94a3b8; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Action Required</div>
+                <h2 style="color: white; margin: 0 0 20px 0; font-size: 24px; font-weight: 700;">Hello @${student.username},</h2>
+                <p style="color: #94a3b8; font-size: 16px; line-height: 1.6; margin-bottom: 30px; text-align: left;">
+                  Your request for Premium Access could not be approved at this time. This is usually due to:
+                  <ul style="color: #94a3b8; text-align: left; padding-left: 20px; margin-top: 10px;">
+                    <li>Missing or unclear payment screenshot.</li>
+                    <li>Incorrect transaction details.</li>
+                    <li>Duplicate request.</li>
+                  </ul>
+                  Please ensure your proof of payment is clear and try submitting the request again.
+                </p>
+                <a href="${process.env.APP_URL || 'https://sppuvault.com'}" style="display: inline-block; border: 1px solid #475569; color: white; padding: 14px 28px; border-radius: 12px; font-weight: 600; text-decoration: none;">
+                  Re-submit Request
+                </a>
+                <div style="margin-top: 40px; padding-top: 25px; border-top: 1px solid #334155;">
+                  <p style="color: #64748b; font-size: 13px; margin: 0;">
+                    Need help? Contact support via the dashboard feedback section.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `
+      }).catch(err => console.error('[Resend Error]', err));
+    }
+
+    res.json({ success: true, message: 'Student rejected and notified.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to reject student.' });
+  }
+});
+
+// GET /admin/students
+router.get('/students', async (req, res) => {
+  try {
+    const students = await Student.find({}, '-password').sort({ registeredAt: -1 });
+    res.json(students);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch students' });
+  }
+});
+
+// POST /admin/revoke-premium/:id
+router.post('/revoke-premium/:id', async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ error: 'Student not found.' });
+
+    student.isPremium = false;
+    student.premiumStatus = 'none';
+    await student.save();
+
+    res.json({ success: true, message: 'Premium access revoked successfully.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to revoke premium access.' });
+  }
+});
+
+// GET /admin/analytics
+router.get('/analytics', async (req, res) => {
+  try {
+    // Total Earnings
+    const earningsAgg = await Purchase.aggregate([
+      { $group: { _id: null, total: { $sum: "$pricePaid" }, count: { $sum: 1 } } }
+    ]);
+    
+    const totalEarnings = earningsAgg.length > 0 ? earningsAgg[0].total : 0;
+    const totalSales = earningsAgg.length > 0 ? earningsAgg[0].count : 0;
+    
+    // Recent Purchases
+    const recentPurchases = await Purchase.find()
+      .sort({ purchasedAt: -1 })
+      .limit(50)
+      .populate('user', 'username email')
+      .populate('product', 'title price');
+
+    res.json({
+      success: true,
+      totalEarnings,
+      totalSales,
+      recentPurchases
+    });
+  } catch (err) {
+    console.error('Analytics Error:', err);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
+// ── GET Banner Config ─────────────────────────────────────────────────────────
+router.get('/banner', requireAdmin, async (req, res) => {
+  try {
+    let banner = await Banner.findOne({ key: 'main_banner' });
+    if (!banner) {
+      banner = new Banner({ key: 'main_banner', text: 'Welcome to SPPU PYQ Portal!', link: '', isActive: false });
+      await banner.save();
+    }
+    res.json(banner);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST Update Banner Config ─────────────────────────────────────────────────
+router.post('/banner', requireAdmin, async (req, res) => {
+  try {
+    const { text, link, isActive } = req.body;
+    let banner = await Banner.findOne({ key: 'main_banner' });
+    if (!banner) {
+      banner = new Banner({ key: 'main_banner' });
+    }
+    banner.text = text;
+    banner.link = link;
+    banner.isActive = isActive;
+    await banner.save();
+    res.json({ success: true, banner });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET Telegram Promo Config ───────────────────────────────────────────────────
+router.get('/telegram-promo', requireAdmin, async (req, res) => {
+  try {
+    let promo = await TelegramPromo.findOne({ key: 'telegram_promo' });
+    if (!promo) {
+      promo = new TelegramPromo({ key: 'telegram_promo' });
+      await promo.save();
+    }
+    res.json(promo);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST Update Telegram Promo Config ─────────────────────────────────────────
+router.post('/telegram-promo', requireAdmin, async (req, res) => {
+  try {
+    const {
+      popupEnabled,
+      popupTitle,
+      popupText,
+      popupButtonText,
+      popupContinueText,
+      bannerEnabled,
+      bannerText,
+      bannerButtonText,
+      defaultUrl,
+      firstYearUrl,
+      secondYearUrl,
+      thirdYearUrl,
+      fourthYearUrl
+    } = req.body;
+
+    let promo = await TelegramPromo.findOne({ key: 'telegram_promo' });
+    if (!promo) {
+      promo = new TelegramPromo({ key: 'telegram_promo' });
+    }
+
+    if (popupEnabled !== undefined) promo.popupEnabled = Boolean(popupEnabled);
+    if (popupTitle !== undefined) promo.popupTitle = popupTitle;
+    if (popupText !== undefined) promo.popupText = popupText;
+    if (popupButtonText !== undefined) promo.popupButtonText = popupButtonText;
+    if (popupContinueText !== undefined) promo.popupContinueText = popupContinueText;
+
+    if (bannerEnabled !== undefined) promo.bannerEnabled = Boolean(bannerEnabled);
+    if (bannerText !== undefined) promo.bannerText = bannerText;
+    if (bannerButtonText !== undefined) promo.bannerButtonText = bannerButtonText;
+
+    if (defaultUrl !== undefined) promo.defaultUrl = defaultUrl;
+    if (firstYearUrl !== undefined) promo.firstYearUrl = firstYearUrl;
+    if (secondYearUrl !== undefined) promo.secondYearUrl = secondYearUrl;
+    if (thirdYearUrl !== undefined) promo.thirdYearUrl = thirdYearUrl;
+    if (fourthYearUrl !== undefined) promo.fourthYearUrl = fourthYearUrl;
+
+    await promo.save();
+    res.json({ success: true, promo });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

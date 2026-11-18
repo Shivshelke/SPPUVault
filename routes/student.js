@@ -1,0 +1,203 @@
+/**
+ * routes/student.js — MongoDB version
+ */
+const express  = require('express');
+const bcrypt   = require('bcryptjs');
+const admin    = require('firebase-admin');
+const router   = express.Router();
+const Student  = require('../models/Student');
+const rateLimit = require('express-rate-limit');
+const { signToken, setAuthCookie, clearAuthCookie } = require('../utils/jwt');
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login/register requests per windowMs
+  message: { error: 'Too many login attempts from this IP, please try again after 15 minutes' }
+});
+
+// Initialize Firebase Admin safely
+if (process.env.FIREBASE_PROJECT_ID && !admin.apps.length) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
+      })
+    });
+    console.log('[Firebase] Admin SDK initialized successfully.');
+  } catch (error) {
+    console.error('[Firebase] Initialization error:', error.message);
+  }
+} else if (!process.env.FIREBASE_PROJECT_ID) {
+  console.warn('[Firebase] Warning: FIREBASE_PROJECT_ID not set. Google login will not work.');
+}
+
+// POST /student/google-login
+router.post('/google-login', loginLimiter, async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) return res.status(400).json({ error: 'ID Token required.' });
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { email, name, picture } = decodedToken;
+
+    // Find or create student
+    let student = await Student.findOne({ email });
+    
+    if (!student) {
+      // Create new student with random password (since they use Google)
+      const randomPass = Math.random().toString(36).slice(-10);
+      const hashed = await bcrypt.hash(randomPass, 10);
+      student = await Student.create({
+        username: name || email.split('@')[0],
+        email,
+        password: hashed,
+        isPremium: false
+      });
+    }
+
+    const token = signToken({
+      isStudent: true,
+      studentUser: student.username,
+      studentUserId: student._id ? student._id.toString() : '',
+      isPremium: Boolean(student.isPremium)
+    });
+    setAuthCookie(res, 'sppuvault_student_token', token);
+
+    req.session.isStudent     = true;
+    req.session.studentUser   = student.username;
+    req.session.studentUserId = student._id ? student._id.toString() : '';
+    req.session.isPremium     = student.isPremium || false;
+
+    res.json({ success: true, username: student.username, token });
+  } catch (error) {
+    console.error('[Firebase Auth Error]', error);
+    res.status(401).json({ error: 'Invalid Google token.' });
+  }
+});
+
+
+// POST /student/register
+router.post('/register', loginLimiter, async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+    if (!username || !email || !password)
+      return res.status(400).json({ error: 'Username, email, and password are required.' });
+
+    const exists = await Student.findOne({ $or: [{ username }, { email }] });
+    if (exists) return res.status(400).json({ error: 'Username or email already in use.' });
+
+    const hashed = await bcrypt.hash(password, 10);
+    const student = await Student.create({ username, email, password: hashed, isPremium: false });
+
+    const token = signToken({
+      isStudent: true,
+      studentUser: username,
+      studentUserId: student._id ? student._id.toString() : '',
+      isPremium: false
+    });
+    setAuthCookie(res, 'sppuvault_student_token', token);
+
+    req.session.isStudent     = true;
+    req.session.studentUser   = username;
+    req.session.studentUserId = student._id ? student._id.toString() : '';
+    req.session.isPremium     = false;
+    res.json({ success: true, message: 'Registration successful.', token });
+  } catch (error) {
+    console.error("[Student Register Error]:", error);
+    res.status(500).json({ error: 'Failed to register. The database might be warming up, please try again.' });
+  }
+});
+
+// POST /student/login
+router.post('/login', loginLimiter, async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+    const identifier = (username || email || '').trim();
+    if (!identifier || !password)
+      return res.status(400).json({ error: 'Username and password required.' });
+
+    const student = await Student.findOne({
+      $or: [
+        { username: { $regex: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+        { email: identifier.toLowerCase() }
+      ]
+    });
+    if (!student) return res.status(401).json({ error: 'Invalid credentials.' });
+
+    const valid = await bcrypt.compare(password, student.password);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials.' });
+
+    const token = signToken({
+      isStudent: true,
+      studentUser: student.username,
+      studentUserId: student._id ? student._id.toString() : '',
+      isPremium: Boolean(student.isPremium)
+    });
+    setAuthCookie(res, 'sppuvault_student_token', token);
+
+    req.session.isStudent     = true;
+    req.session.studentUser   = student.username;
+    req.session.studentUserId = student._id ? student._id.toString() : '';
+    req.session.isPremium     = student.isPremium || false;
+    return res.json({ success: true, username: student.username, isPremium: req.session.isPremium, token });
+  } catch (error) {
+    console.error("[Student Login Error]:", error);
+    res.status(500).json({ error: 'Failed to log in. The database might be warming up, please try again.' });
+  }
+});
+
+// POST /student/logout
+router.post('/logout', (req, res) => {
+  clearAuthCookie(res, 'sppuvault_student_token');
+  req.session.isStudent     = false;
+  req.session.studentUser   = null;
+  req.session.studentUserId = null;
+  req.session.isPremium     = false;
+  res.json({ success: true });
+});
+
+// GET /student/status
+router.get('/status', async (req, res) => {
+  try {
+    if (req.session && req.session.isStudent) {
+      const student = await Student.findOne({ username: req.session.studentUser });
+      if (!student) return res.json({ loggedIn: false });
+      
+      // Sync session
+      req.session.isPremium = student.isPremium;
+      
+      return res.json({ 
+        loggedIn: true, 
+        username: student.username, 
+        email: student.email,
+        isPremium: student.isPremium,
+        premiumStatus: student.premiumStatus || 'none'
+      });
+    }
+    res.json({ loggedIn: false });
+  } catch (error) {
+    console.error("[Student Status Error]:", error);
+    res.status(500).json({ error: 'Failed to sync student status.' });
+  }
+});
+
+// POST /student/buy-premium
+router.post('/buy-premium', async (req, res) => {
+  try {
+    if (!req.session || !req.session.isStudent)
+      return res.status(401).json({ error: 'Unauthorized.' });
+
+    await Student.updateOne(
+      { username: req.session.studentUser }, 
+      { premiumStatus: 'pending', requestedAt: new Date(), requestSeen: false }
+    );
+    res.json({ success: true, message: 'Your request for Premium access has been sent to the Admin! ✨' });
+  } catch (error) {
+    console.error("[Buy Premium Error]:", error);
+    res.status(500).json({ error: 'Failed to request premium access. Please try again.' });
+  }
+});
+
+module.exports = router;

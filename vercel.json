@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(css|js|assets|img)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "src": "/second-year-aiml-engineering/data-structures-algoriths",
+      "status": 301,
+      "headers": { "Location": "/second-year-aiml-engineering/data-structures-algorithms" }
+    },
+    {
+      "src": "/sppu-2025-pattern",
+      "status": 301,
+      "headers": { "Location": "/sppu-pyq-2024-pattern" }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "server.js"
+    }
+  ]
+}
