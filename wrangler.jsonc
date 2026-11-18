@@ -1,11 +1,15 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "sppuvault-backend",
+  "name": "sppuvault",
   "main": "worker.js",
   "compatibility_date": "2026-08-04",
   "compatibility_flags": [
     "nodejs_compat"
   ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
   "observability": {
     "enabled": true
   }
