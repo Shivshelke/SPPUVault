@@ -125,7 +125,7 @@ async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
     if (cachedConfigDoc && (Date.now() - lastConfigTime < 1000 * 60 * 10)) {
       yearsConfig = cachedConfigDoc.years || {};
     } else {
-      const doc = await CategoryConfig.findOne({ key: 'years_config' }).lean();
+      const doc = await CategoryConfig.findOne({ key: 'years_config' });
       if (doc) {
         cachedConfigDoc = doc;
         lastConfigTime = Date.now();
@@ -146,7 +146,7 @@ async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
   }
   let dbBranches = [];
   try {
-    dbBranches = await File.distinct('branch', { year }).lean();
+    dbBranches = await File.distinct('branch', { year });
   } catch (err) {}
   const allBranches = [...new Set([...branches, ...dbBranches])].filter(Boolean);
 
@@ -173,7 +173,7 @@ async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
   if (resolvedBranch) dbSubjectsQuery.branch = resolvedBranch;
   let dbSubjects = [];
   try {
-    dbSubjects = await File.distinct('subject', dbSubjectsQuery).lean();
+    dbSubjects = await File.distinct('subject', dbSubjectsQuery);
   } catch (err) {}
   const allSubjects = [...new Set([...subjects, ...dbSubjects])].filter(Boolean);
 
@@ -468,7 +468,7 @@ app.get('/sitemap.xml', ensureDbConnected, async (req, res) => {
     const CategoryConfig = require('./models/CategoryConfig');
 
     // Fetch config from DB
-    let configDoc = await CategoryConfig.findOne({ key: 'years_config' }).lean();
+    let configDoc = await CategoryConfig.findOne({ key: 'years_config' });
     let yearsConfig = configDoc ? configDoc.years : {};
 
     // Create a set of unique URLs
