@@ -74,11 +74,20 @@ async function getClient() {
   const uri = await resolveMongoUri(rawUri);
 
   client = new MongoClient(uri, {
-    maxPoolSize: 10,
-    minPoolSize: 1,
-    maxIdleTimeMS: 30000,
-    serverSelectionTimeoutMS: 10000,
-    connectTimeoutMS: 15000
+    maxPoolSize: 1,
+    minPoolSize: 0,
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000,
+    maxIdleTimeMS: 15000
+  });
+
+  client.on('error', () => {
+    client = null;
+    dbInstance = null;
+  });
+  client.on('close', () => {
+    client = null;
+    dbInstance = null;
   });
 
   return client;
@@ -87,9 +96,15 @@ async function getClient() {
 async function getDb() {
   if (dbInstance) return dbInstance;
   const c = await getClient();
-  await c.connect();
-  dbInstance = c.db();
-  return dbInstance;
+  try {
+    await c.connect();
+    dbInstance = c.db();
+    return dbInstance;
+  } catch (err) {
+    client = null;
+    dbInstance = null;
+    throw err;
+  }
 }
 
 async function connectDB() {
