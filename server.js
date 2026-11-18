@@ -6,6 +6,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const jwtSessionMiddleware = require('./middleware/jwtSession');
 const { connectDB, ObjectId } = require('./utils/db');
+const { getStaticFile } = require('./utils/staticFiles');
 const path = require('path');
 const BASE_DIR = typeof __dirname !== 'undefined' ? __dirname : (process.cwd ? process.cwd() : '');
 const helmet = require('helmet');
@@ -262,19 +263,19 @@ async function generateSeoDirectory() {
 app.get('/', ensureDbConnected, async (req, res) => {
   try {
     const base = getSiteBaseUrl(req);
-    let html = fs.readFileSync(path.join(BASE_DIR, 'public', 'index.html'), 'utf8');
+    let html = getStaticFile('index.html');
     const directoryHtml = await generateSeoDirectory();
     html = html.replace('<div id="seo-links-directory"></div>', directoryHtml);
     html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
-    res.send(html);
+    res.type('html').send(html);
   } catch (err) {
-    res.sendFile(path.join(BASE_DIR, 'public', 'index.html'));
+    res.type('html').send(getStaticFile('index.html'));
   }
 });
 
 // ── SGPA Calculator Route ─────────────────────────────────────────────────────
 app.get('/sgpa-calculator', (req, res) => {
-  res.sendFile(path.join(BASE_DIR, 'public', 'sgpa-calculator.html'));
+  res.type('html').send(getStaticFile('sgpa-calculator.html'));
 });
 
 // ── Product SEO Route ─────────────────────────────────────────────────────────
@@ -293,7 +294,7 @@ app.get('/product.html', ensureDbConnected, async (req, res, next) => {
     }
     if (!p) return next();
 
-    let html = fs.readFileSync(path.join(BASE_DIR, 'public', 'product.html'), 'utf8');
+    let html = getStaticFile('product.html');
     
     const prodTitle = `${p.title.replace(/"/g, '&quot;')} | SPPUVault Marketplace`;
     const prodDesc = (p.description || `Download verified SPPU Engineering study material for ${p.branch || 'all branches'}. Handwritten notes and solved PYQs on SPPUVault.`).replace(/"/g, '&quot;');
@@ -337,10 +338,10 @@ app.get('/product.html', ensureDbConnected, async (req, res, next) => {
 `;
     html = html.replace('</head>', `${seoTags}\n</head>`);
     html = html.replace('<h1 class="p-title" id="pTitle">SPPU Engineering Study Material</h1>', `<h1 class="p-title" id="pTitle">${p.title}</h1>`);
-    res.send(html);
+    res.type('html').send(html);
   } catch (err) {
     console.error('SEO Product Error:', err);
-    next(); // Fallback to static serving
+    res.type('html').send(getStaticFile('product.html'));
   }
 });
 
@@ -348,24 +349,22 @@ app.get('/product.html', ensureDbConnected, async (req, res, next) => {
 app.get('/llms.txt', (req, res) => {
   try {
     const base = getSiteBaseUrl(req);
-    let content = fs.readFileSync(path.join(BASE_DIR, 'public', 'llms.txt'), 'utf8');
+    let content = getStaticFile('llms.txt');
     content = content.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
-    res.type('text/plain; charset=utf-8');
-    res.send(content);
+    res.type('text/plain; charset=utf-8').send(content);
   } catch (e) {
-    res.sendFile(path.join(BASE_DIR, 'public', 'llms.txt'));
+    res.type('text/plain; charset=utf-8').send(getStaticFile('llms.txt'));
   }
 });
 
 app.get('/llms-full.txt', (req, res) => {
   try {
     const base = getSiteBaseUrl(req);
-    let content = fs.readFileSync(path.join(BASE_DIR, 'public', 'llms-full.txt'), 'utf8');
+    let content = getStaticFile('llms-full.txt');
     content = content.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
-    res.type('text/plain; charset=utf-8');
-    res.send(content);
+    res.type('text/plain; charset=utf-8').send(content);
   } catch (e) {
-    res.sendFile(path.join(BASE_DIR, 'public', 'llms-full.txt'));
+    res.type('text/plain; charset=utf-8').send(getStaticFile('llms-full.txt'));
   }
 });
 
@@ -649,165 +648,165 @@ app.get('/dsa', (req, res) => {
 app.get('/sppu-pyq-drive-2024-pattern', ensureDbConnected, async (req, res) => {
   try {
     const base = getSiteBaseUrl(req);
-    let html = fs.readFileSync(path.join(BASE_DIR, 'public', 'sppu-pyq-drive-2024-pattern.html'), 'utf8');
+    let html = getStaticFile('sppu-pyq-drive-2024-pattern.html');
     const directoryHtml = await generateSeoDirectory();
     html = html.replace('<div id="seo-links-directory"></div>', directoryHtml);
     html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
-    res.send(html);
+    res.type('html').send(html);
   } catch (err) {
-    res.sendFile(path.join(BASE_DIR, 'public', 'sppu-pyq-drive-2024-pattern.html'));
+    res.type('html').send(getStaticFile('sppu-pyq-drive-2024-pattern.html'));
   }
 });
 
 // ── Catalog SEO Dynamic Meta Injection ────────────────────────────────────────
 app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) => {
-  const base = getSiteBaseUrl(req);
-  const { yearSlug, subjectSlug } = req.params;
-  
-  if (yearSlug && yearSlug.includes('2025-pattern')) {
-    return res.redirect(301, '/' + yearSlug.replace(/2025-pattern/g, '2024-pattern'));
-  }
-
-  // Regex to match the new SEO-friendly year slugs e.g., first-year-fe-engineering
-  const match = yearSlug.match(/^(first|second|third|fourth|final)-year-(.+)$/);
-  if (!match) {
-    return next(); // Not a catalog route, pass to the next handler
-  }
-  
-  let year = match[1];
-  if (year === 'final') year = 'fourth';
-  
-  let branchSlug = match[2];
-  if (branchSlug === 'fe-engineering') {
-    branchSlug = 'fe';
-  } else if (branchSlug === 'engineering') {
-    branchSlug = null; // Bare year page
-  } else if (branchSlug.endsWith('-engineering')) {
-    branchSlug = branchSlug.replace(/-engineering$/, '');
-  }
-
-  const { resolvedBranch, resolvedSubject } = await resolveBranchAndSubject(year, branchSlug, subjectSlug);
-
-  const is2019 = (subjectSlug && subjectSlug.includes('2019')) || (resolvedSubject && resolvedSubject.includes('2019'));
-  const patternLabel = is2019 ? '2019 Pattern (legacy)' : '2024 Pattern';
-
-  // Check for specific striking-distance subject abbreviations
-  const isDsa = /data\s*structures?|dsa/i.test(resolvedSubject || '') || /data-structures?|dsa/i.test(subjectSlug || '');
-  const isDeld = /deld|digital\s*electronics.*logic\s*design/i.test(resolvedSubject || '') || /deld|digital-electronics.*logic-design/i.test(subjectSlug || '');
-  const isM2 = /engineering\s*mathematics.*(?:ii|2)\b|m2|m-2/i.test(resolvedSubject || '') || /engineering-mathematics.*(?:ii|2)\b|m2|m-2/i.test(subjectSlug || '');
-
-  let title = `SPPU PYQ ${patternLabel} — Pune University Engineering Question Papers | SPPUVault`;
-  let description = `Download SPPU Engineering Previous Year Question Papers (PYQs) for ${patternLabel}. Free access to all branches: Computer, IT, Mechanical, Civil, E&TC, and more.`;
-
-  const formattedYear = year.charAt(0).toUpperCase() + year.slice(1);
-  const formattedBranch = resolvedBranch || '';
-  const formattedSubject = resolvedSubject || '';
-
-  if (isDsa) {
-    title = `Data Structures and Algorithms (DSA) – SPPU PYQ ${patternLabel} | SPPUVault`;
-    description = `Download SPPU Data Structures and Algorithms (DSA) question papers for ${patternLabel} in PDF format. Free Insem & Endsem previous year question papers with solutions.`;
-  } else if (isDeld) {
-    title = `Digital Electronics & Logic Design (DELD) – SPPU PYQ ${patternLabel} | SPPUVault`;
-    description = `Download SPPU Digital Electronics & Logic Design (DELD) question papers for engineering students. Free Insem & Endsem ${patternLabel} PYQ PDFs for Computer & AIML.`;
-  } else if (isM2) {
-    title = `Engineering Mathematics II (M2) – SPPU PYQ ${patternLabel} | SPPUVault`;
-    description = `Download SPPU Engineering Mathematics II (M2) previous year question papers (PYQs) for ${patternLabel}. Free Insem and Endsem FE PDF downloads on SPPUVault.`;
-  } else if (resolvedSubject) {
-    title = `${formattedSubject} SPPU PYQ ${patternLabel} (Insem & Endsem) | ${formattedBranch || 'First Year'} — SPPUVault`;
-    description = `Download Savitribai Phule Pune University (SPPU) Insem & Endsem previous year question papers (PYQs) for ${formattedSubject} (${formattedBranch || 'First Year'}). Free PDF downloads for ${patternLabel}.`;
-  } else if (resolvedBranch) {
-    title = `${formattedBranch} (${formattedYear} Year) SPPU Engineering PYQs (Insem & Endsem) — SPPUVault`;
-    description = `Access Savitribai Phule Pune University (SPPU) Engineering ${formattedBranch} branch previous year question papers (PYQs) for Insem & Endsem exams.`;
-  } else if (year) {
-    title = `${formattedYear} Year SPPU Engineering PYQs (Insem & Endsem) — SPPUVault`;
-    description = `Browse Savitribai Phule Pune University (SPPU) Engineering previous year question papers (PYQs) for ${formattedYear} Year Insem & Endsem exams.`;
-  }
-
-  // Construct Breadcrumbs
-  const breadcrumbList = [
-    {
-      "@type": "ListItem",
-      "position": 1,
-      "name": "Home",
-      "item": `${base}/`
+  try {
+    const base = getSiteBaseUrl(req);
+    const { yearSlug, subjectSlug } = req.params;
+    
+    if (yearSlug && yearSlug.includes('2025-pattern')) {
+      return res.redirect(301, '/' + yearSlug.replace(/2025-pattern/g, '2024-pattern'));
     }
-  ];
 
-  if (year) {
-    breadcrumbList.push({
-      "@type": "ListItem",
-      "position": 2,
-      "name": `${formattedYear} Year`,
-      "item": `${base}${getSeoUrl(year, null, null)}`
-    });
-  }
+    // Regex to match the new SEO-friendly year slugs e.g., first-year-fe-engineering
+    const match = yearSlug.match(/^(first|second|third|fourth|final)-year-(.+)$/);
+    if (!match) {
+      return next(); // Not a catalog route, pass to the next handler
+    }
+    
+    let year = match[1];
+    if (year === 'final') year = 'fourth';
+    
+    let branchSlug = match[2];
+    if (branchSlug === 'fe-engineering') {
+      branchSlug = 'fe';
+    } else if (branchSlug === 'engineering') {
+      branchSlug = null; // Bare year page
+    } else if (branchSlug.endsWith('-engineering')) {
+      branchSlug = branchSlug.replace(/-engineering$/, '');
+    }
 
-  if (branchSlug) {
-    breadcrumbList.push({
-      "@type": "ListItem",
-      "position": 3,
-      "name": formattedBranch,
-      "item": `${base}${getSeoUrl(year, branchSlug, null)}`
-    });
-  }
+    const { resolvedBranch, resolvedSubject } = await resolveBranchAndSubject(year, branchSlug, subjectSlug);
 
-  if (subjectSlug) {
-    const pos = branchSlug ? 4 : 3;
-    const urlPath = `${base}${getSeoUrl(year, branchSlug || 'FE', subjectSlug)}`;
-    breadcrumbList.push({
-      "@type": "ListItem",
-      "position": pos,
-      "name": formattedSubject,
-      "item": urlPath
-    });
-  }
+    const is2019 = (subjectSlug && subjectSlug.includes('2019')) || (resolvedSubject && resolvedSubject.includes('2019'));
+    const patternLabel = is2019 ? '2019 Pattern (legacy)' : '2024 Pattern';
 
-  const breadcrumbSchema = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": breadcrumbList
-  };
+    // Check for specific striking-distance subject abbreviations
+    const isDsa = /data\s*structures?|dsa/i.test(resolvedSubject || '') || /data-structures?|dsa/i.test(subjectSlug || '');
+    const isDeld = /deld|digital\s*electronics.*logic\s*design/i.test(resolvedSubject || '') || /deld|digital-electronics.*logic-design/i.test(subjectSlug || '');
+    const isM2 = /engineering\s*mathematics.*(?:ii|2)\b|m2|m-2/i.test(resolvedSubject || '') || /engineering-mathematics.*(?:ii|2)\b|m2|m-2/i.test(subjectSlug || '');
 
-  // Construct FAQ Schema
-  const faqSchema = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
+    let title = `SPPU PYQ ${patternLabel} — Pune University Engineering Question Papers | SPPUVault`;
+    let description = `Download SPPU Engineering Previous Year Question Papers (PYQs) for ${patternLabel}. Free access to all branches: Computer, IT, Mechanical, Civil, E&TC, and more.`;
+
+    const formattedYear = year.charAt(0).toUpperCase() + year.slice(1);
+    const formattedBranch = resolvedBranch || '';
+    const formattedSubject = resolvedSubject || '';
+
+    if (isDsa) {
+      title = `Data Structures and Algorithms (DSA) – SPPU PYQ ${patternLabel} | SPPUVault`;
+      description = `Download SPPU Data Structures and Algorithms (DSA) question papers for ${patternLabel} in PDF format. Free Insem & Endsem previous year question papers with solutions.`;
+    } else if (isDeld) {
+      title = `Digital Electronics & Logic Design (DELD) – SPPU PYQ ${patternLabel} | SPPUVault`;
+      description = `Download SPPU Digital Electronics & Logic Design (DELD) question papers for engineering students. Free Insem & Endsem ${patternLabel} PYQ PDFs for Computer & AIML.`;
+    } else if (isM2) {
+      title = `Engineering Mathematics II (M2) – SPPU PYQ ${patternLabel} | SPPUVault`;
+      description = `Download SPPU Engineering Mathematics II (M2) previous year question papers (PYQs) for ${patternLabel}. Free Insem and Endsem FE PDF downloads on SPPUVault.`;
+    } else if (resolvedSubject) {
+      title = `${formattedSubject} SPPU PYQ ${patternLabel} (Insem & Endsem) | ${formattedBranch || 'First Year'} — SPPUVault`;
+      description = `Download Savitribai Phule Pune University (SPPU) Insem & Endsem previous year question papers (PYQs) for ${formattedSubject} (${formattedBranch || 'First Year'}). Free PDF downloads for ${patternLabel}.`;
+    } else if (resolvedBranch) {
+      title = `${formattedBranch} (${formattedYear} Year) SPPU Engineering PYQs (Insem & Endsem) — SPPUVault`;
+      description = `Access Savitribai Phule Pune University (SPPU) Engineering ${formattedBranch} branch previous year question papers (PYQs) for Insem & Endsem exams.`;
+    } else if (year) {
+      title = `${formattedYear} Year SPPU Engineering PYQs (Insem & Endsem) — SPPUVault`;
+      description = `Browse Savitribai Phule Pune University (SPPU) Engineering previous year question papers (PYQs) for ${formattedYear} Year Insem & Endsem exams.`;
+    }
+
+    // Construct Breadcrumbs
+    const breadcrumbList = [
       {
-        "@type": "Question",
-        "name": `How to download SPPU ${formattedSubject || formattedBranch || formattedYear + ' Year'} Previous Year Question Papers (PYQs)?`,
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": `You can download Savitribai Phule Pune University (SPPU) engineering previous year question papers (PYQs) for ${formattedSubject || formattedBranch || formattedYear + ' Year'} in PDF format for free on SPPUVault. Simply browse the catalog to find In-Sem and End-Sem papers.`
-        }
-      },
-      {
-        "@type": "Question",
-        "name": `Are ${formattedSubject || 'SPPU engineering'} papers updated for the 2024 Pattern?`,
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": `Yes, we host the latest 2024 Pattern SPPU question papers for ${formattedSubject || 'all classes and branches'}, as well as legacy 2019 Pattern papers for comprehensive revision.`
-        }
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": `${base}/`
       }
-    ]
-  };
+    ];
 
-  // Query files from DB
-  let files = [];
-  try {
-    const File = require('./models/File');
-    const query = { contentType: 'regular' };
-    if (year) query.year = year;
-    if (branchSlug && branchSlug !== 'FE') query.branch = formattedBranch;
-    if (subjectSlug) query.subject = formattedSubject;
+    if (year) {
+      breadcrumbList.push({
+        "@type": "ListItem",
+        "position": 2,
+        "name": `${formattedYear} Year`,
+        "item": `${base}${getSeoUrl(year, null, null)}`
+      });
+    }
 
-    files = await File.find(query).sort({ isPinned: -1, uploadDate: -1 }).lean();
-  } catch (dbErr) {
-    console.error('Failed to fetch files for SEO container:', dbErr);
-  }
+    if (branchSlug) {
+      breadcrumbList.push({
+        "@type": "ListItem",
+        "position": 3,
+        "name": formattedBranch,
+        "item": `${base}${getSeoUrl(year, branchSlug, null)}`
+      });
+    }
 
-  try {
-    let html = fs.readFileSync(path.join(BASE_DIR, 'public', 'index.html'), 'utf8');
+    if (subjectSlug) {
+      const pos = branchSlug ? 4 : 3;
+      const urlPath = `${base}${getSeoUrl(year, branchSlug || 'FE', subjectSlug)}`;
+      breadcrumbList.push({
+        "@type": "ListItem",
+        "position": pos,
+        "name": formattedSubject,
+        "item": urlPath
+      });
+    }
+
+    const breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": breadcrumbList
+    };
+
+    // Construct FAQ Schema
+    const faqSchema = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": `How to download SPPU ${formattedSubject || formattedBranch || formattedYear + ' Year'} Previous Year Question Papers (PYQs)?`,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": `You can download Savitribai Phule Pune University (SPPU) engineering previous year question papers (PYQs) for ${formattedSubject || formattedBranch || formattedYear + ' Year'} in PDF format for free on SPPUVault. Simply browse the catalog to find In-Sem and End-Sem papers.`
+          }
+        },
+        {
+          "@type": "Question",
+          "name": `Are ${formattedSubject || 'SPPU engineering'} papers updated for the 2024 Pattern?`,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": `Yes, we host the latest 2024 Pattern SPPU question papers for ${formattedSubject || 'all classes and branches'}, as well as legacy 2019 Pattern papers for comprehensive revision.`
+          }
+        }
+      ]
+    };
+
+    // Query files from DB
+    let files = [];
+    try {
+      const File = require('./models/File');
+      const query = { contentType: 'regular' };
+      if (year) query.year = year;
+      if (branchSlug && branchSlug !== 'FE') query.branch = formattedBranch;
+      if (subjectSlug) query.subject = formattedSubject;
+
+      files = await File.find(query).sort({ isPinned: -1, uploadDate: -1 }).lean();
+    } catch (dbErr) {
+      console.error('Failed to fetch files for SEO container:', dbErr);
+    }
+
+    let html = getStaticFile('index.html');
     html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
 
     // Replace Meta Tags dynamically
@@ -923,9 +922,10 @@ app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) =>
     const directoryHtml = await generateSeoDirectory();
     html = html.replace('<div id="seo-links-directory"></div>', directoryHtml);
 
-    res.send(html);
+    res.type('html').send(html);
   } catch (err) {
-    res.sendFile(path.join(BASE_DIR, 'public', 'index.html'));
+    console.error('Catalog SEO route error:', err);
+    res.type('html').send(getStaticFile('index.html'));
   }
 });
 
@@ -943,7 +943,7 @@ app.get('*', ensureDbConnected, async (req, res) => {
       urlPath.includes('dsa') || urlPath.includes('m2')
     )) {
       
-      let html = fs.readFileSync(path.join(BASE_DIR, 'public', 'index.html'), 'utf8');
+      let html = getStaticFile('index.html');
       html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
       
       let title = '';
@@ -1162,18 +1162,10 @@ app.get('*', ensureDbConnected, async (req, res) => {
       return res.status(404).json({ error: 'Route not found' });
     }
 
-    try {
-      return res.status(404).sendFile(path.join(BASE_DIR, 'public', '404.html'));
-    } catch (_) {
-      return res.status(404).type('text/html').send('<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>');
-    }
+    return res.status(404).type('text/html').send(getStaticFile('404.html') || '<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>');
   } catch (err) {
     console.error('Catch-all SEO generation error:', err);
-    try {
-      return res.status(500).sendFile(path.join(BASE_DIR, 'public', '404.html'));
-    } catch (_) {
-      return res.status(500).type('text/html').send('<!DOCTYPE html><html><body><h1>500 Server Error</h1></body></html>');
-    }
+    return res.status(500).type('text/html').send(getStaticFile('404.html') || '<!DOCTYPE html><html><body><h1>500 Server Error</h1></body></html>');
   }
 });
 

@@ -249,6 +249,62 @@ class QueryChain {
   }
 }
 
+class SingleQueryChain {
+  constructor(collectionName, filter, projection) {
+    this.collectionName = collectionName;
+    this.filter = filter || {};
+    this.projection = parseProjection(projection);
+    this.sortOptions = null;
+  }
+
+  sort(s) {
+    this.sortOptions = s;
+    return this;
+  }
+
+  lean() {
+    return this;
+  }
+
+  populate() {
+    return this;
+  }
+
+  select(sel) {
+    if (typeof sel === 'string') {
+      const proj = {};
+      sel.split(' ').forEach(field => {
+        if (field.startsWith('-')) {
+          proj[field.slice(1)] = 0;
+        } else if (field) {
+          proj[field] = 1;
+        }
+      });
+      this.projection = { ...(this.projection || {}), ...proj };
+    }
+    return this;
+  }
+
+  async exec() {
+    const db = await getDb();
+    const col = db.collection(this.collectionName);
+    const query = { ...this.filter };
+    if (query._id) {
+      if (typeof query._id === 'string') query._id = toObjectId(query._id);
+    }
+    let doc = await col.findOne(query, this.projection ? { projection: this.projection } : {});
+    return wrapDoc(doc, this.collectionName);
+  }
+
+  then(resolve, reject) {
+    return this.exec().then(resolve, reject);
+  }
+
+  catch(reject) {
+    return this.exec().catch(reject);
+  }
+}
+
 function createModel(collectionName, defaultData = {}) {
   // Support `new Model(data)` constructor syntax
   function ModelConstructor(data = {}) {
@@ -268,67 +324,83 @@ function createModel(collectionName, defaultData = {}) {
     return new QueryChain(collectionName, filter, projection);
   };
 
-  ModelConstructor.findOne = async function(filter = {}, projection) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const query = { ...filter };
-    if (query._id) query._id = toObjectId(query._id);
-    const parsedProj = parseProjection(projection);
-    const doc = await col.findOne(query, parsedProj ? { projection: parsedProj } : {});
-    return wrapDoc(doc, collectionName);
+  ModelConstructor.findOne = function(filter = {}, projection) {
+    return new SingleQueryChain(collectionName, filter, projection);
   };
 
-  ModelConstructor.findById = async function(id, projection) {
-    if (!id) return null;
-    return ModelConstructor.findOne({ _id: toObjectId(id) }, projection);
+  ModelConstructor.findById = function(id, projection) {
+    if (!id) return new SingleQueryChain(collectionName, { _id: null }, projection);
+    return new SingleQueryChain(collectionName, { _id: toObjectId(id) }, projection);
   };
 
-  ModelConstructor.findByIdAndUpdate = async function(id, update, options = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const _id = toObjectId(id);
-    const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
-    const res = await col.findOneAndUpdate(
-      { _id },
-      updatePayload,
-      { returnDocument: options.new !== false ? 'after' : 'before' }
-    );
-    const doc = res && res.value !== undefined ? res.value : res;
-    return wrapDoc(doc, collectionName);
+  ModelConstructor.findByIdAndUpdate = function(id, update, options = {}) {
+    const p = (async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const _id = toObjectId(id);
+      const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
+      const res = await col.findOneAndUpdate(
+        { _id },
+        updatePayload,
+        { returnDocument: options.new !== false ? 'after' : 'before' }
+      );
+      const doc = res && res.value !== undefined ? res.value : res;
+      return wrapDoc(doc, collectionName);
+    })();
+    p.lean = () => p;
+    p.exec = () => p;
+    return p;
   };
 
-  ModelConstructor.findOneAndUpdate = async function(filter, update, options = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const query = { ...filter };
-    if (query._id) query._id = toObjectId(query._id);
-    const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
-    const res = await col.findOneAndUpdate(
-      query,
-      updatePayload,
-      {
-        returnDocument: options.new !== false ? 'after' : 'before',
-        upsert: Boolean(options.upsert)
-      }
-    );
-    const doc = res && res.value !== undefined ? res.value : res;
-    return wrapDoc(doc, collectionName);
+  ModelConstructor.findOneAndUpdate = function(filter, update, options = {}) {
+    const p = (async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const query = { ...filter };
+      if (query._id) query._id = toObjectId(query._id);
+      const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
+      const res = await col.findOneAndUpdate(
+        query,
+        updatePayload,
+        {
+          returnDocument: options.new !== false ? 'after' : 'before',
+          upsert: Boolean(options.upsert)
+        }
+      );
+      const doc = res && res.value !== undefined ? res.value : res;
+      return wrapDoc(doc, collectionName);
+    })();
+    p.lean = () => p;
+    p.exec = () => p;
+    return p;
   };
 
-  ModelConstructor.findByIdAndDelete = async function(id) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const res = await col.findOneAndDelete({ _id: toObjectId(id) });
-    return res && res.value !== undefined ? res.value : res;
+  ModelConstructor.findByIdAndDelete = function(id) {
+    const p = (async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const res = await col.findOneAndDelete({ _id: toObjectId(id) });
+      const doc = res && res.value !== undefined ? res.value : res;
+      return wrapDoc(doc, collectionName);
+    })();
+    p.lean = () => p;
+    p.exec = () => p;
+    return p;
   };
 
-  ModelConstructor.findOneAndDelete = async function(filter) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const query = { ...filter };
-    if (query._id) query._id = toObjectId(query._id);
-    const res = await col.findOneAndDelete(query);
-    return res && res.value !== undefined ? res.value : res;
+  ModelConstructor.findOneAndDelete = function(filter) {
+    const p = (async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const query = { ...filter };
+      if (query._id) query._id = toObjectId(query._id);
+      const res = await col.findOneAndDelete(query);
+      const doc = res && res.value !== undefined ? res.value : res;
+      return wrapDoc(doc, collectionName);
+    })();
+    p.lean = () => p;
+    p.exec = () => p;
+    return p;
   };
 
   ModelConstructor.create = async function(data) {
@@ -388,16 +460,26 @@ function createModel(collectionName, defaultData = {}) {
     return col.deleteMany(filter);
   };
 
-  ModelConstructor.countDocuments = async function(filter = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    return col.countDocuments(filter);
+  ModelConstructor.countDocuments = function(filter = {}) {
+    const p = (async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      return col.countDocuments(filter);
+    })();
+    p.lean = () => p;
+    p.exec = () => p;
+    return p;
   };
 
-  ModelConstructor.distinct = async function(field, filter = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    return col.distinct(field, filter);
+  ModelConstructor.distinct = function(field, filter = {}) {
+    const p = (async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      return col.distinct(field, filter);
+    })();
+    p.lean = () => p;
+    p.exec = () => p;
+    return p;
   };
 
   ModelConstructor.aggregate = function(pipeline = []) {
