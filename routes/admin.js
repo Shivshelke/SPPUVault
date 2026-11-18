@@ -282,16 +282,25 @@ router.post('/product', (req, res) => {
 
 // DELETE /admin/files/:id
 router.delete('/files/:id', async (req, res) => {
-  const file = await File.findById(req.params.id);
-  if (!file) return res.status(404).json({ error: 'File not found.' });
-
   try {
-    if (file.publicId && !file.publicId.startsWith('google-drive')) {
-      await cloudinary.uploader.destroy(file.publicId, { resource_type: 'raw' });
+    const file = await File.findById(req.params.id);
+    if (!file) {
+      return res.json({ success: true, message: 'File was already removed.' });
     }
-  } catch (e) { }
-  await File.deleteOne({ _id: req.params.id });
-  res.json({ success: true });
+
+    try {
+      if (file.publicId && !file.publicId.startsWith('google-drive')) {
+        await cloudinary.uploader.destroy(file.publicId, { resource_type: 'raw' });
+      }
+    } catch (cErr) {
+      console.warn('Cloudinary destroy warning:', cErr.message);
+    }
+    await File.deleteOne({ _id: req.params.id });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete file error:', err);
+    res.status(500).json({ error: 'Delete failed: ' + err.message });
+  }
 });
 
 // PUT /admin/files/:id/gate
@@ -327,6 +336,7 @@ router.put('/files/:id/pin', async (req, res) => {
 
 // GET /admin/files
 router.get('/files', async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   const { contentType, year, search } = req.query;
   const query = contentType
     ? { contentType }

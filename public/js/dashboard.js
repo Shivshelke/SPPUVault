@@ -12,6 +12,7 @@
 
 let CONFIG = {};
 let deleteTargetId = null;
+let deleteTargetType = 'free';
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
@@ -796,6 +797,7 @@ async function loadAdminFiles() {
   const params = new URLSearchParams();
   if (year) params.append('year', year);
   if (search) params.append('search', search);
+  params.append('_t', Date.now());
 
   const res = await fetch(`/admin/files?${params}`);
   const files = await res.json();
@@ -848,7 +850,7 @@ async function loadAdminFiles() {
                 <button class="btn-ghost" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; margin-right: 0.3rem; ${f.isPinned ? 'background:rgba(245,158,11,0.15); color:#f59e0b; border-color:#f59e0b;' : ''}" onclick="togglePinFile('${escHtml(f._id)}')">${f.isPinned ? '📍 Unpin' : '📌 Pin'}</button>
                 <button class="btn-ghost" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; margin-right: 0.3rem; ${hasSol ? '' : 'color:var(--accent); border-color:var(--accent);'}" onclick="openSolutionModal('${escHtml(f._id)}', '${escHtml(f.originalName)}', '${escHtml(f.solutionUrl || '')}', '${escHtml(f.solutionType || 'none')}', '${escHtml(f.solutionOriginalName || '')}')">${hasSol ? 'Edit Sol' : '+ Solution'}</button>
                 <button class="btn-primary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; margin-right: 0.3rem;" onclick="openGateModal('${escHtml(f._id)}', '${escHtml(f.originalName)}', '${f.downloadGate ? escHtml(f.downloadGate.type) : 'none'}', '${f.downloadGate ? escHtml(f.downloadGate.whatsappUrl || '') : ''}', '${f.downloadGate ? escHtml(f.downloadGate.telegramUrl || '') : ''}')">Gate</button>
-                <button class="btn-del" onclick="openDeleteModal('${escHtml(f._id)}', '${escHtml(f.originalName)}')">Delete</button>
+                <button class="btn-del" onclick="openDeleteModal('${escHtml(f._id)}', '${escHtml(f.originalName).replace(/'/g, "\\'")}')">Delete</button>
               </td>
             </tr>
           `}).join('')}
@@ -895,6 +897,9 @@ async function doDelete() {
     btn.disabled = false; btn.textContent = 'Delete';
   }
 }
+window.openDeleteModal = openDeleteModal;
+window.closeDeleteModal = closeDeleteModal;
+window.doDelete = doDelete;
 
 async function togglePinFile(id) {
   try {
@@ -935,6 +940,9 @@ async function doPremiumDelete() {
     btn.disabled = false; btn.textContent = 'Delete';
   }
 }
+window.openDeleteModal = openDeleteModal;
+window.closeDeleteModal = closeDeleteModal;
+window.doDelete = doDelete;
 
 // ── Download Gate modal ───────────────────────────────────────────────────────
 let gateTargetId = null;
