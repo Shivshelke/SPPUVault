@@ -749,7 +749,7 @@
 
         let userFriendlyMsg = error.message;
         if (error.code === 'auth/unauthorized-domain') {
-          userFriendlyMsg = 'This domain is not authorized in Firebase Console yet. Please add sppuvault.com to Firebase Authentication > Settings > Authorized domains.';
+          userFriendlyMsg = `This domain (${window.location.hostname}) is not authorized in Firebase Console yet. Please add ${window.location.hostname} to Firebase Authentication > Settings > Authorized domains.`;
         }
         showMsg('loginError', `Google login failed: ${userFriendlyMsg}`);
         if (btn) {
