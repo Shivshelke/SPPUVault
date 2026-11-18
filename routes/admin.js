@@ -74,11 +74,13 @@ const upload = multer({
 
 router.use(requireAdmin);
 
-// GET /admin/dashboard
+// GET /admin or /admin/dashboard
+router.get('/', (req, res) => {
+  res.redirect('/dashboard.html');
+});
+
 router.get('/dashboard', (req, res) => {
-  const path = require('path');
-  const baseDir = typeof __dirname !== 'undefined' ? __dirname : (process.cwd ? process.cwd() : '');
-  res.sendFile(path.join(baseDir, '../public/dashboard.html'));
+  res.redirect('/dashboard.html');
 });
 
 

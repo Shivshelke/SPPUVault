@@ -270,7 +270,7 @@
 
   <script>
     fetch('/auth/status').then(r => r.json()).then(d => {
-      if (d.loggedIn) window.location.href = '/admin/dashboard';
+      if (d.loggedIn) window.location.href = '/dashboard.html';
     });
 
     async function doLogin() {
@@ -289,7 +289,7 @@
           body: JSON.stringify({ username, password })
         });
         const data = await res.json();
-        if (data.success) { window.location.href = '/admin/dashboard'; }
+        if (data.success) { window.location.href = '/dashboard.html'; }
         else { showError(data.error || 'Access denied.'); }
       } catch (e) { showError('System error. Try again.'); }
       finally { btn.disabled = false; btn.textContent = 'Secure Sign In →'; }
