@@ -180,15 +180,24 @@ router.get('/view/:id', async (req, res) => {
 
 const CategoryConfig = require('../models/CategoryConfig');
 
+let cachedConfig = null;
+let lastConfigTime = 0;
+
 // GET /api/config
 router.get('/config', async (req, res) => {
+  if (cachedConfig && (Date.now() - lastConfigTime < 1000 * 60 * 10)) {
+    return res.json(cachedConfig);
+  }
   try {
     let doc = await CategoryConfig.findOne({ key: 'years_config' });
     if (!doc) {
       doc = await CategoryConfig.create({ key: 'years_config' });
     }
-    res.json(doc.years);
+    cachedConfig = doc.years || {};
+    lastConfigTime = Date.now();
+    res.json(cachedConfig);
   } catch (e) {
+    if (cachedConfig) return res.json(cachedConfig);
     console.error('Error loading config from DB:', e);
     res.status(500).json({ error: 'Failed to load configuration.' });
   }
@@ -299,16 +308,22 @@ router.get('/premium-files', async (req, res) => {
   }
 });
 
+let cachedStats = null;
+let lastStatsTime = 0;
+
 // GET /api/stats
 router.get('/stats', async (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  if (cachedStats && (Date.now() - lastStatsTime < 1000 * 15)) {
+    return res.json(cachedStats);
+  }
   try {
     const [total, totalStudents, pendingPremium, totalFeedback, byYearRaw] = await Promise.all([
-      File.countDocuments().catch(err => { console.error('Count files error:', err); return 0; }),
-      Student.countDocuments().catch(err => { console.error('Count students error:', err); return 0; }),
+      File.countDocuments().catch(() => (cachedStats ? cachedStats.total : 0)),
+      Student.countDocuments().catch(() => (cachedStats ? cachedStats.totalStudents : 0)),
       Student.countDocuments({ premiumStatus: 'pending', requestSeen: false }).catch(() => 0),
       Feedback.countDocuments({ isRead: false }).catch(() => 0),
-      File.aggregate([{ $group: { _id: '$year', count: { $sum: 1 } } }]).catch(err => { console.error('Aggregate year error:', err); return []; })
+      File.aggregate([{ $group: { _id: '$year', count: { $sum: 1 } } }]).catch(() => [])
     ]);
 
     const byYear = {};
@@ -316,16 +331,17 @@ router.get('/stats', async (req, res) => {
       byYearRaw.forEach(r => { if (r._id) byYear[r._id] = r.count; });
     }
 
-    res.json({
-      total: total || 0,
-      totalStudents: totalStudents || 0,
+    cachedStats = {
+      total: total || (cachedStats ? cachedStats.total : 0),
+      totalStudents: totalStudents || (cachedStats ? cachedStats.totalStudents : 0),
       pendingPremium: pendingPremium || 0,
       totalFeedback: totalFeedback || 0,
       byYear
-    });
+    };
+    lastStatsTime = Date.now();
+    res.json(cachedStats);
   } catch (e) {
-    console.error('[Stats API Error]:', e);
-    // Return empty stats instead of 500 to keep UI functional
+    if (cachedStats) return res.json(cachedStats);
     res.json({ total: 0, totalStudents: 0, pendingPremium: 0, totalFeedback: 0, byYear: {} });
   }
 });
@@ -624,31 +640,44 @@ User message: ${message}`;
   }
 });
 
+let cachedBanner = null;
+let lastBannerTime = 0;
+
 // ── GET Main Banner ───────────────────────────────────────────────────────────
 router.get('/banner', async (req, res) => {
+  if (cachedBanner && (Date.now() - lastBannerTime < 1000 * 60 * 10)) {
+    return res.json(cachedBanner);
+  }
   try {
     const banner = await Banner.findOne({ key: 'main_banner' });
-    if (banner) {
-      res.json(banner);
-    } else {
-      res.json({ isActive: false });
-    }
+    cachedBanner = banner || { isActive: false };
+    lastBannerTime = Date.now();
+    res.json(cachedBanner);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch banner' });
+    if (cachedBanner) return res.json(cachedBanner);
+    res.json({ isActive: false });
   }
 });
 
+let cachedPromo = null;
+let lastPromoTime = 0;
+
 // ── GET Telegram Promo Config (Public) ──────────────────────────────────────────
 router.get('/telegram-promo', async (req, res) => {
+  if (cachedPromo && (Date.now() - lastPromoTime < 1000 * 60 * 10)) {
+    return res.json(cachedPromo);
+  }
   try {
     let promo = await TelegramPromo.findOne({ key: 'telegram_promo' });
     if (!promo) {
-      promo = new TelegramPromo({ key: 'telegram_promo' });
-      await promo.save();
+      promo = { key: 'telegram_promo', enabled: false };
     }
+    cachedPromo = promo;
+    lastPromoTime = Date.now();
     res.json(promo);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch telegram promo' });
+    if (cachedPromo) return res.json(cachedPromo);
+    res.json({ key: 'telegram_promo', enabled: false });
   }
 });
 

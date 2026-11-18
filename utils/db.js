@@ -65,6 +65,23 @@ async function resolveMongoUri(uri) {
   }
 }
 
+const DB_TIMEOUT_MS = 3500;
+
+function withTimeout(promise, ms = DB_TIMEOUT_MS) {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`[MongoDB] Operation timed out after ${ms}ms`));
+    }, ms);
+  });
+  return Promise.race([
+    promise,
+    timeoutPromise
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 async function getClient() {
   if (client) return client;
 
@@ -74,11 +91,11 @@ async function getClient() {
   const uri = await resolveMongoUri(rawUri);
 
   client = new MongoClient(uri, {
-    maxPoolSize: 1,
+    maxPoolSize: 10,
     minPoolSize: 0,
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 5000,
-    maxIdleTimeMS: 15000
+    serverSelectionTimeoutMS: 3000,
+    connectTimeoutMS: 3000,
+    maxIdleTimeMS: 30000
   });
 
   client.on('error', () => {
@@ -97,7 +114,7 @@ async function getDb() {
   if (dbInstance) return dbInstance;
   const c = await getClient();
   try {
-    await c.connect();
+    await withTimeout(c.connect(), 3500);
     dbInstance = c.db();
     return dbInstance;
   } catch (err) {
@@ -161,9 +178,9 @@ function wrapDoc(doc, collectionName) {
         delete updateDoc.save;
         delete updateDoc.markModified;
         delete updateDoc.toObject;
-        await col.updateOne({ _id: toObjectId(this._id) }, { $set: updateDoc });
+        await withTimeout(col.updateOne({ _id: toObjectId(this._id) }, { $set: updateDoc }));
       } else {
-        const res = await col.insertOne(this);
+        const res = await withTimeout(col.insertOne(this));
         this._id = res.insertedId;
       }
       return this;
@@ -257,7 +274,7 @@ class QueryChain {
     if (this.skipNum) cursor = cursor.skip(this.skipNum);
     if (this.limitNum) cursor = cursor.limit(this.limitNum);
 
-    const docs = await cursor.toArray();
+    const docs = await withTimeout(cursor.toArray());
     return docs.map(d => wrapDoc(d, this.collectionName));
   }
 
@@ -295,7 +312,7 @@ function createModel(collectionName, defaultData = {}) {
     const query = { ...filter };
     if (query._id) query._id = toObjectId(query._id);
     const parsedProj = parseProjection(projection);
-    const doc = await col.findOne(query, parsedProj ? { projection: parsedProj } : {});
+    const doc = await withTimeout(col.findOne(query, parsedProj ? { projection: parsedProj } : {}));
     return wrapDoc(doc, collectionName);
   };
 
@@ -414,20 +431,20 @@ function createModel(collectionName, defaultData = {}) {
   ModelConstructor.countDocuments = async function(filter = {}) {
     const db = await getDb();
     const col = db.collection(collectionName);
-    return col.countDocuments(filter);
+    return withTimeout(col.countDocuments(filter));
   };
 
   ModelConstructor.distinct = async function(field, filter = {}) {
     const db = await getDb();
     const col = db.collection(collectionName);
-    return col.distinct(field, filter);
+    return withTimeout(col.distinct(field, filter));
   };
 
   ModelConstructor.aggregate = function(pipeline = []) {
     const p = (async () => {
       const db = await getDb();
       const col = db.collection(collectionName);
-      return col.aggregate(pipeline).toArray();
+      return withTimeout(col.aggregate(pipeline).toArray());
     })();
     p.toArray = () => p;
     return p;

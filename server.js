@@ -146,7 +146,9 @@ async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
   }
   let dbBranches = [];
   try {
-    dbBranches = await File.distinct('branch', { year });
+    if (branches.length === 0) {
+      dbBranches = await File.distinct('branch', { year });
+    }
   } catch (err) {}
   const allBranches = [...new Set([...branches, ...dbBranches])].filter(Boolean);
 
@@ -169,11 +171,13 @@ async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
       }
     }
   }
-  const dbSubjectsQuery = { year };
-  if (resolvedBranch) dbSubjectsQuery.branch = resolvedBranch;
   let dbSubjects = [];
   try {
-    dbSubjects = await File.distinct('subject', dbSubjectsQuery);
+    if (subjects.length === 0) {
+      const dbSubjectsQuery = { year };
+      if (resolvedBranch) dbSubjectsQuery.branch = resolvedBranch;
+      dbSubjects = await File.distinct('subject', dbSubjectsQuery);
+    }
   } catch (err) {}
   const allSubjects = [...new Set([...subjects, ...dbSubjects])].filter(Boolean);
 
