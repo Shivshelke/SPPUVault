@@ -113,12 +113,28 @@ function getSeoUrl(year, branch, subject) {
   return newUrl;
 }
 
+let cachedConfigDoc = null;
+let lastConfigTime = 0;
+
 async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
   const File = require('./models/File');
   const CategoryConfig = require('./models/CategoryConfig');
 
-  let configDoc = await CategoryConfig.findOne({ key: 'years_config' }).lean();
-  let yearsConfig = configDoc ? configDoc.years : {};
+  let yearsConfig = {};
+  try {
+    if (cachedConfigDoc && (Date.now() - lastConfigTime < 1000 * 60 * 10)) {
+      yearsConfig = cachedConfigDoc.years || {};
+    } else {
+      const doc = await CategoryConfig.findOne({ key: 'years_config' }).lean();
+      if (doc) {
+        cachedConfigDoc = doc;
+        lastConfigTime = Date.now();
+        yearsConfig = doc.years || {};
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch years_config:', err.message);
+  }
 
   let resolvedBranch = null;
   let resolvedSubject = null;
@@ -128,7 +144,10 @@ async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
   if (yearsConfig[year]) {
     branches = yearsConfig[year].branches || [];
   }
-  const dbBranches = await File.distinct('branch', { year }).lean();
+  let dbBranches = [];
+  try {
+    dbBranches = await File.distinct('branch', { year }).lean();
+  } catch (err) {}
   const allBranches = [...new Set([...branches, ...dbBranches])].filter(Boolean);
 
   if (branchSlug) {
@@ -152,7 +171,10 @@ async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
   }
   const dbSubjectsQuery = { year };
   if (resolvedBranch) dbSubjectsQuery.branch = resolvedBranch;
-  const dbSubjects = await File.distinct('subject', dbSubjectsQuery).lean();
+  let dbSubjects = [];
+  try {
+    dbSubjects = await File.distinct('subject', dbSubjectsQuery).lean();
+  } catch (err) {}
   const allSubjects = [...new Set([...subjects, ...dbSubjects])].filter(Boolean);
 
   if (subjectSlug) {
@@ -162,7 +184,14 @@ async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
   return { resolvedBranch, resolvedSubject };
 }
 
+let cachedSeoDirectory = null;
+let lastSeoDirTime = 0;
+
 async function generateSeoDirectory() {
+  if (cachedSeoDirectory && (Date.now() - lastSeoDirTime < 1000 * 60 * 10)) {
+    return cachedSeoDirectory;
+  }
+
   try {
     const File = require('./models/File');
     const allCombinations = await File.find({ contentType: 'regular' }, 'year branch subject').lean();
@@ -252,6 +281,8 @@ async function generateSeoDirectory() {
   </details>
 </div>
 `;
+    cachedSeoDirectory = directoryHtml;
+    lastSeoDirTime = Date.now();
     return directoryHtml;
   } catch (dirErr) {
     console.error('Directory generation error:', dirErr);

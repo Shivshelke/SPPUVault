@@ -249,62 +249,6 @@ class QueryChain {
   }
 }
 
-class SingleQueryChain {
-  constructor(collectionName, filter, projection) {
-    this.collectionName = collectionName;
-    this.filter = filter || {};
-    this.projection = parseProjection(projection);
-    this.sortOptions = null;
-  }
-
-  sort(s) {
-    this.sortOptions = s;
-    return this;
-  }
-
-  lean() {
-    return this;
-  }
-
-  populate() {
-    return this;
-  }
-
-  select(sel) {
-    if (typeof sel === 'string') {
-      const proj = {};
-      sel.split(' ').forEach(field => {
-        if (field.startsWith('-')) {
-          proj[field.slice(1)] = 0;
-        } else if (field) {
-          proj[field] = 1;
-        }
-      });
-      this.projection = { ...(this.projection || {}), ...proj };
-    }
-    return this;
-  }
-
-  async exec() {
-    const db = await getDb();
-    const col = db.collection(this.collectionName);
-    const query = { ...this.filter };
-    if (query._id) {
-      if (typeof query._id === 'string') query._id = toObjectId(query._id);
-    }
-    let doc = await col.findOne(query, this.projection ? { projection: this.projection } : {});
-    return wrapDoc(doc, this.collectionName);
-  }
-
-  then(resolve, reject) {
-    return this.exec().then(resolve, reject);
-  }
-
-  catch(reject) {
-    return this.exec().catch(reject);
-  }
-}
-
 function createModel(collectionName, defaultData = {}) {
   // Support `new Model(data)` constructor syntax
   function ModelConstructor(data = {}) {
@@ -325,12 +269,42 @@ function createModel(collectionName, defaultData = {}) {
   };
 
   ModelConstructor.findOne = function(filter = {}, projection) {
-    return new SingleQueryChain(collectionName, filter, projection);
+    let currentProj = parseProjection(projection);
+    const p = (async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const query = { ...filter };
+      if (query._id) query._id = toObjectId(query._id);
+      const doc = await col.findOne(query, currentProj ? { projection: currentProj } : {});
+      return wrapDoc(doc, collectionName);
+    })();
+    p.lean = () => p;
+    p.exec = () => p;
+    p.populate = () => p;
+    p.select = (sel) => {
+      if (typeof sel === 'string') {
+        const proj = {};
+        sel.split(' ').forEach(field => {
+          if (field.startsWith('-')) proj[field.slice(1)] = 0;
+          else if (field) proj[field] = 1;
+        });
+        currentProj = { ...(currentProj || {}), ...proj };
+      }
+      return p;
+    };
+    return p;
   };
 
   ModelConstructor.findById = function(id, projection) {
-    if (!id) return new SingleQueryChain(collectionName, { _id: null }, projection);
-    return new SingleQueryChain(collectionName, { _id: toObjectId(id) }, projection);
+    if (!id) {
+      const p = Promise.resolve(null);
+      p.lean = () => p;
+      p.exec = () => p;
+      p.populate = () => p;
+      p.select = () => p;
+      return p;
+    }
+    return ModelConstructor.findOne({ _id: toObjectId(id) }, projection);
   };
 
   ModelConstructor.findByIdAndUpdate = function(id, update, options = {}) {
