@@ -1286,7 +1286,9 @@ function formatSize(bytes) {
 
 function formatDate(iso) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const d = new Date(iso);
+  if (isNaN(d.getTime()) || d.getTime() === 0) return '—';
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function escHtml(str) {

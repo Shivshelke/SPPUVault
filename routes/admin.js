@@ -119,7 +119,8 @@ router.post('/upload', (req, res) => {
           url: url,
           publicId: `google-drive_${Date.now()}_${i}`,
           contentType: contentType || 'regular',
-          pattern: pattern || '2024'
+          pattern: pattern || '2024',
+          uploadDate: new Date()
         };
         return File.create(record);
       });
@@ -291,7 +292,13 @@ router.delete('/files/:id', async (req, res) => {
 
     try {
       if (file.publicId && !file.publicId.startsWith('google-drive')) {
-        await cloudinary.uploader.destroy(file.publicId, { resource_type: 'raw' });
+        await Promise.race([
+          Promise.allSettled([
+            cloudinary.uploader.destroy(file.publicId, { resource_type: 'raw' }),
+            cloudinary.uploader.destroy(file.publicId, { resource_type: 'image' })
+          ]),
+          new Promise(resolve => setTimeout(resolve, 2000))
+        ]);
       }
     } catch (cErr) {
       console.warn('Cloudinary destroy warning:', cErr.message);
