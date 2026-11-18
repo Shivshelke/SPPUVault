@@ -130,7 +130,7 @@ router.post('/upload', (req, res) => {
       if (!req.file) return res.status(400).json({ error: 'File required.' });
       
       const record = {
-        originalName: req.file.originalname,
+        originalName: (customFileName && customFileName.trim()) ? customFileName.trim() : req.file.originalname,
         storedName: req.file.filename || req.file.public_id,
         year: year || 'any',
         branch: branch || 'any',
@@ -141,7 +141,8 @@ router.post('/upload', (req, res) => {
         url: req.file.path,
         publicId: req.file.filename || req.file.public_id,
         contentType: contentType || 'regular',
-        pattern: pattern || '2024'
+        pattern: pattern || '2024',
+        uploadDate: new Date()
       };
       
       const saved = await File.create(record);

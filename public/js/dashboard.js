@@ -40,7 +40,7 @@ async function loadConfig() {
 // ── Stats ─────────────────────────────────────────────────────────────────────
 async function loadStats() {
   try {
-    const res = await fetch('/api/stats');
+    const res = await fetch('/api/stats?_t=' + Date.now());
     const stats = await res.json();
     document.getElementById('dTotal').textContent = stats.total;
     document.getElementById('dFirst').textContent = stats.byYear.first || 0;
@@ -645,6 +645,7 @@ async function doUpload() {
       document.getElementById('upSubject').disabled = true;
       await loadStats();
       await loadRecentFiles();
+      if (typeof loadAdminFiles === 'function') await loadAdminFiles();
     } else {
       showUploadAlert(data.error || 'Upload failed.', 'error');
       progressFill.style.width = '0%';

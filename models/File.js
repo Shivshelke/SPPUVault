@@ -16,8 +16,7 @@ const File = createModel('files', {
   solutionUrl: '',
   solutionType: 'none',
   solutionOriginalName: '',
-  solutionPublicId: '',
-  uploadDate: new Date()
+  solutionPublicId: ''
 });
 
 module.exports = File;

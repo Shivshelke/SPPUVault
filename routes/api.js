@@ -301,13 +301,14 @@ router.get('/premium-files', async (req, res) => {
 
 // GET /api/stats
 router.get('/stats', async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   try {
     const [total, totalStudents, pendingPremium, totalFeedback, byYearRaw] = await Promise.all([
-      File.countDocuments().catch(() => 0),
-      Student.countDocuments().catch(() => 0),
+      File.countDocuments().catch(err => { console.error('Count files error:', err); return 0; }),
+      Student.countDocuments().catch(err => { console.error('Count students error:', err); return 0; }),
       Student.countDocuments({ premiumStatus: 'pending', requestSeen: false }).catch(() => 0),
       Feedback.countDocuments({ isRead: false }).catch(() => 0),
-      File.aggregate([{ $group: { _id: '$year', count: { $sum: 1 } } }]).catch(() => [])
+      File.aggregate([{ $group: { _id: '$year', count: { $sum: 1 } } }]).catch(err => { console.error('Aggregate year error:', err); return []; })
     ]);
 
     const byYear = {};
