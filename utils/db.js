@@ -91,11 +91,13 @@ async function getClient() {
   const uri = await resolveMongoUri(rawUri);
 
   client = new MongoClient(uri, {
-    maxPoolSize: 10,
+    maxPoolSize: 2,
     minPoolSize: 0,
-    serverSelectionTimeoutMS: 3000,
-    connectTimeoutMS: 3000,
-    maxIdleTimeMS: 30000
+    serverSelectionTimeoutMS: 4000,
+    connectTimeoutMS: 4000,
+    maxIdleTimeMS: 5000,
+    waitQueueTimeoutMS: 5000,
+    socketTimeoutMS: 10000
   });
 
   client.on('error', () => {
