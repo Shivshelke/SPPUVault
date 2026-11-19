@@ -188,7 +188,7 @@ async function init() {
   fetch('/api/stats')
     .then(r => r.json())
     .then(stats => {
-      if (document.getElementById('statTotal') && stats.total) {
+      if (document.getElementById('statTotal') && typeof stats.total !== 'undefined') {
         document.getElementById('statTotal').textContent = stats.total;
       }
       const formatPaperCount = (cnt) => {
