@@ -15,6 +15,7 @@ const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GE
 const router = express.Router();
 const File = require('../models/File');
 const Feedback = require('../models/Feedback');
+const Review = require('../models/Review');
 const Student = require('../models/Student');
 const Banner = require('../models/Banner');
 const TelegramPromo = require('../models/TelegramPromo');
@@ -334,11 +335,12 @@ router.get('/stats', async (req, res) => {
     return res.json(cachedStats);
   }
   try {
-    const [total, totalStudents, pendingPremium, totalFeedback, byYearRaw] = await Promise.all([
+    const [total, totalStudents, pendingPremium, totalFeedback, pendingReviews, byYearRaw] = await Promise.all([
       File.countDocuments().catch(() => (cachedStats ? cachedStats.total : 0)),
       Student.countDocuments().catch(() => (cachedStats ? cachedStats.totalStudents : 0)),
       Student.countDocuments({ premiumStatus: 'pending', requestSeen: false }).catch(() => 0),
       Feedback.countDocuments({ isRead: false }).catch(() => 0),
+      Review.countDocuments({ status: 'pending' }).catch(() => 0),
       File.aggregate([{ $group: { _id: '$year', count: { $sum: 1 } } }]).catch(() => [])
     ]);
 
@@ -354,13 +356,14 @@ router.get('/stats', async (req, res) => {
       totalStudents: totalStudents || (cachedStats ? cachedStats.totalStudents : 0),
       pendingPremium: pendingPremium || 0,
       totalFeedback: totalFeedback || 0,
+      pendingReviews: pendingReviews || 0,
       byYear
     };
     lastStatsTime = Date.now();
     res.json(cachedStats);
   } catch (e) {
     if (cachedStats) return res.json(cachedStats);
-    res.json({ total: 0, totalStudents: 0, pendingPremium: 0, totalFeedback: 0, byYear: {} });
+    res.json({ total: 0, totalStudents: 0, pendingPremium: 0, totalFeedback: 0, pendingReviews: 0, byYear: {} });
   }
 });
 
@@ -417,6 +420,65 @@ router.post('/feedback/mark-read', async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/reviews - Approved reviews for website display
+router.get('/reviews', async (req, res) => {
+  try {
+    const reviews = await Review.find({ status: 'approved' }).sort({ createdAt: -1 });
+    const totalCount = reviews.length;
+    let avg = 5.0;
+    if (totalCount > 0) {
+      const sum = reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
+      avg = Math.round((sum / totalCount) * 10) / 10;
+    }
+    res.json({
+      reviews,
+      stats: {
+        totalReviews: totalCount,
+        averageRating: avg
+      }
+    });
+  } catch (err) {
+    console.error('[Reviews API Error]:', err);
+    res.json({ reviews: [], stats: { totalReviews: 0, averageRating: 5.0 } });
+  }
+});
+
+// POST /api/reviews - Student submits a new review (pending admin approval)
+router.post('/reviews', async (req, res) => {
+  try {
+    const { name, rating, year, branch, college, comment, avatarColor } = req.body;
+    if (!comment || !comment.trim()) {
+      return res.status(400).json({ error: 'Review message is required.' });
+    }
+    const safeName = name && name.trim() ? name.trim().slice(0, 50) : 'Anonymous Student';
+    const safeRating = Math.min(5, Math.max(1, parseInt(rating) || 5));
+    const safeYear = ['FE', 'SE', 'TE', 'BE'].includes(year) ? year : 'SE';
+    const safeBranch = branch ? String(branch).trim().slice(0, 60) : 'Engineering';
+    const safeCollege = college ? String(college).trim().slice(0, 100) : '';
+    const safeColor = avatarColor && /^#[0-9A-Fa-f]{6}$/.test(avatarColor) ? avatarColor : '#6366f1';
+
+    const doc = await Review.create({
+      name: safeName,
+      rating: safeRating,
+      year: safeYear,
+      branch: safeBranch,
+      college: safeCollege,
+      comment: comment.trim().slice(0, 500),
+      avatarColor: safeColor,
+      status: 'pending',
+      createdAt: new Date()
+    });
+
+    res.json({
+      success: true,
+      message: 'Thank you! Your review has been submitted and will be published once approved by admin.'
+    });
+  } catch (err) {
+    console.error('[Submit Review Error]:', err);
+    res.status(500).json({ error: 'Failed to submit review. Please try again.' });
   }
 });
 // POST /api/chat (Gemini AI Chatbot with Dynamic DB Paper Context & New Features)

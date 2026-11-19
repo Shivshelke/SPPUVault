@@ -49,6 +49,10 @@
         <span class="nav-icon">💬</span> Feedback <span class="nav-badge" id="badge-feedback"
           style="display:none"></span>
       </a>
+      <a href="#" class="nav-item" data-panel="reviews">
+        <span class="nav-icon">⭐</span> Student Reviews <span class="nav-badge" id="badge-reviews"
+          style="display:none"></span>
+      </a>
       <a href="#" class="nav-item" data-panel="requests">
         <span class="nav-icon">🔔</span> Premium Requests <span class="nav-badge" id="badge-requests"
           style="display:none"></span>
@@ -517,6 +521,19 @@
         <button class="btn-ghost" onclick="loadFeedback()">↻ Refresh</button>
       </div>
       <div id="adminFeedbackList"></div>
+    </section>
+
+    <!-- ══ PANEL: REVIEWS ══ -->
+    <section class="panel" id="panel-reviews">
+      <div class="panel-header">
+        <h2>Student Reviews Moderation</h2>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-ghost" onclick="loadAdminReviews()">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="adminReviewsList">
+        <div class="empty-state">Loading reviews…</div>
+      </div>
     </section>
 
     <!-- ══ PANEL: STUDENTS ══ -->

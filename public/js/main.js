@@ -202,6 +202,9 @@ async function init() {
     })
     .catch(e => console.error('Stats load error', e));
 
+  // Load Reviews independently
+  loadReviews();
+
   // Load Auth independently
   fetch('/student/status')
     .then(r => r.json())
@@ -1858,6 +1861,211 @@ function showToast(msg) {
     toast.classList.remove('toast-show');
     setTimeout(() => { toast.style.display = 'none'; }, 300);
   }, 2800);
+}
+
+// ── Student Reviews Feature ─────────────────────────────────────────────────
+let selectedReviewRating = 5;
+let selectedReviewColor = '#6366f1';
+let selectedReviewYear = 'SE';
+
+const ratingSentiments = {
+  5: '5.0 — Excellent! 🔥',
+  4: '4.0 — Very Good! 👍',
+  3: '3.0 — Good 🙂',
+  2: '2.0 — Average 😐',
+  1: '1.0 — Needs Improvement ⚠️'
+};
+
+function initStarRatingEvents() {
+  const container = document.getElementById('starRatingContainer');
+  if (!container) return;
+  const stars = container.querySelectorAll('.star-rating-star');
+  stars.forEach(star => {
+    star.addEventListener('mouseenter', () => {
+      const val = parseInt(star.getAttribute('data-val'));
+      stars.forEach(s => {
+        s.classList.toggle('hovered', parseInt(s.getAttribute('data-val')) <= val);
+      });
+      const sentimentEl = document.getElementById('starRatingSentiment');
+      if (sentimentEl) sentimentEl.textContent = ratingSentiments[val] || '';
+    });
+    star.addEventListener('click', () => {
+      selectedReviewRating = parseInt(star.getAttribute('data-val'));
+      stars.forEach(s => {
+        s.classList.toggle('active', parseInt(s.getAttribute('data-val')) <= selectedReviewRating);
+      });
+    });
+  });
+  container.addEventListener('mouseleave', () => {
+    stars.forEach(s => {
+      s.classList.remove('hovered');
+      s.classList.toggle('active', parseInt(s.getAttribute('data-val')) <= selectedReviewRating);
+    });
+    const sentimentEl = document.getElementById('starRatingSentiment');
+    if (sentimentEl) sentimentEl.textContent = ratingSentiments[selectedReviewRating] || '';
+  });
+}
+
+function openReviewModal() {
+  const modal = document.getElementById('reviewModalBackdrop');
+  if (!modal) return;
+  modal.classList.add('active');
+  initStarRatingEvents();
+  const alertEl = document.getElementById('reviewFormAlert');
+  if (alertEl) alertEl.style.display = 'none';
+}
+
+function closeReviewModal() {
+  const modal = document.getElementById('reviewModalBackdrop');
+  if (modal) modal.classList.remove('active');
+}
+
+function setReviewColor(hex, el) {
+  selectedReviewColor = hex;
+  const bubble = document.getElementById('avatarPreviewBubble');
+  if (bubble) bubble.style.background = hex;
+  document.querySelectorAll('.avatar-color-dot').forEach(d => d.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+function setReviewYear(yr, el) {
+  selectedReviewYear = yr;
+  document.querySelectorAll('#reviewYearPills .year-pill-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+function updateAvatarInitial(name) {
+  const bubble = document.getElementById('avatarPreviewBubble');
+  if (!bubble) return;
+  const initial = name && name.trim() ? name.trim().charAt(0).toUpperCase() : 'S';
+  bubble.textContent = initial;
+}
+
+async function submitReview(event) {
+  event.preventDefault();
+  const btn = document.getElementById('reviewSubmitBtn');
+  const alertEl = document.getElementById('reviewFormAlert');
+  const name = document.getElementById('reviewName').value.trim();
+  const branch = document.getElementById('reviewBranch').value;
+  const college = document.getElementById('reviewCollege').value.trim();
+  const comment = document.getElementById('reviewComment').value.trim();
+
+  if (!comment) {
+    if (alertEl) {
+      alertEl.textContent = 'Please enter your review message.';
+      alertEl.style.display = 'block';
+      alertEl.style.background = 'rgba(239, 68, 68, 0.15)';
+      alertEl.style.color = '#ef4444';
+    }
+    return;
+  }
+
+  try {
+    btn.disabled = true;
+    btn.innerHTML = '<span>Submitting review…</span>';
+
+    const res = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        rating: selectedReviewRating,
+        year: selectedReviewYear,
+        branch,
+        college,
+        comment,
+        avatarColor: selectedReviewColor
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alertEl.textContent = '🎉 ' + (data.message || 'Review submitted! It will appear once approved by admin.');
+      alertEl.style.display = 'block';
+      alertEl.style.background = 'rgba(16, 185, 129, 0.15)';
+      alertEl.style.color = '#10b981';
+      document.getElementById('reviewSubmitForm').reset();
+      updateAvatarInitial('');
+      setTimeout(() => {
+        closeReviewModal();
+      }, 2500);
+    } else {
+      alertEl.textContent = data.error || 'Failed to submit review.';
+      alertEl.style.display = 'block';
+      alertEl.style.background = 'rgba(239, 68, 68, 0.15)';
+      alertEl.style.color = '#ef4444';
+    }
+  } catch (err) {
+    if (alertEl) {
+      alertEl.textContent = 'Network error. Please try again.';
+      alertEl.style.display = 'block';
+      alertEl.style.background = 'rgba(239, 68, 68, 0.15)';
+      alertEl.style.color = '#ef4444';
+    }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>🚀 Publish Review</span>';
+  }
+}
+
+async function loadReviews() {
+  const container = document.getElementById('reviewsList');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/reviews');
+    const data = await res.json();
+    const reviews = data.reviews || [];
+    const stats = data.stats || { totalReviews: 0, averageRating: 5.0 };
+
+    const ratingEl = document.getElementById('reviewsSummaryRating');
+    const textEl = document.getElementById('reviewsSummaryText');
+    if (ratingEl) ratingEl.textContent = (stats.averageRating || 5.0).toFixed(1);
+    if (textEl) {
+      textEl.textContent = `${stats.totalReviews} verified student reviews from Pune, Nashik & Ahmednagar`;
+    }
+
+    if (!reviews.length) {
+      container.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 2.5rem 1rem; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius-md, 16px);">
+          <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">🌟</div>
+          <div style="font-weight: 700; color: var(--text); font-size: 1.1rem; margin-bottom: 0.25rem;">Be the first to review SPPUVault!</div>
+          <p style="color: var(--text-secondary); font-size: 0.88rem; max-width: 440px; margin: 0 auto 1.25rem;">Share how previous year question papers helped your exam preparation.</p>
+          <button class="btn-primary" onclick="openReviewModal()" style="padding: 8px 18px; border-radius: 20px; font-weight: 600;">Write First Review</button>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = reviews.map(r => {
+      const initial = (r.name || 'S').trim().charAt(0).toUpperCase();
+      const starsStr = '★'.repeat(r.rating || 5) + '☆'.repeat(Math.max(0, 5 - (r.rating || 5)));
+      const yearLabel = `${r.year || 'SE'} ${r.branch || ''}`.trim();
+      const color = r.avatarColor || '#6366f1';
+      return `
+        <div class="review-card">
+          <div>
+            <div class="review-card-top">
+              <div class="review-avatar" style="background:${color};">${initial}</div>
+              <div class="review-author-info">
+                <div class="review-author-name">
+                  <span>${escHtml(r.name)}</span>
+                  <span class="review-verified-badge" title="Verified SPPU Student">✓</span>
+                </div>
+                <div class="review-stars">${starsStr}</div>
+              </div>
+            </div>
+            <div class="review-comment">${escHtml(r.comment)}</div>
+          </div>
+          <div class="review-footer">
+            <span class="review-tag-pill">${escHtml(yearLabel)}</span>
+            <span class="review-college-text" title="${escHtml(r.college || 'SPPU Affiliated College')}">${escHtml(r.college || 'SPPU College')}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Failed to load reviews:', err);
+  }
 }
 
 

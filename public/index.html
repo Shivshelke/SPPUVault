@@ -677,6 +677,34 @@
     </div>
   </section>
 
+  <!-- ── STUDENT REVIEWS ── -->
+  <section id="reviews" class="section reviews-section">
+    <div class="container">
+      <div class="reviews-header-wrap">
+        <div>
+          <span class="section-eyebrow">Student Community</span>
+          <h2>Students who prepared with SPPUVault</h2>
+          <div class="reviews-summary-badge">
+            <span class="reviews-stars-gold">★★★★★</span>
+            <span id="reviewsSummaryRating">5.0</span>
+            <span style="opacity:0.4;">·</span>
+            <span id="reviewsSummaryText" style="color:var(--text-secondary);">Verified SPPU Student Reviews</span>
+          </div>
+        </div>
+        <div>
+          <button class="btn-primary" onclick="openReviewModal()" style="display:inline-flex; align-items:center; gap:8px; padding: 10px 20px; border-radius: 30px; font-weight:700;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Write a Review
+          </button>
+        </div>
+      </div>
+
+      <div id="reviewsList" class="reviews-grid">
+        <!-- Rendered dynamically by loadReviews() -->
+      </div>
+    </div>
+  </section>
+
   <!-- ── FEEDBACK ── -->
   <section id="feedback" class="section feedback-section">
     <div class="container feedback-inner">
@@ -1127,6 +1155,95 @@
     </div>
     <div class="pwa-countdown-wrap">
       <div id="pwaCountdownBar"></div>
+    </div>
+  </div>
+
+  <!-- ── WRITE REVIEW MODAL ── -->
+  <div id="reviewModalBackdrop" class="review-modal-backdrop" onclick="if(event.target===this) closeReviewModal()">
+    <div class="review-modal-card">
+      <div class="review-modal-header">
+        <div>
+          <h3>Write a Review</h3>
+          <p>Share your experience to help juniors and fellow SPPU engineers.</p>
+        </div>
+        <button class="review-modal-close" onclick="closeReviewModal()" aria-label="Close">✕</button>
+      </div>
+
+      <div class="star-rating-box">
+        <div class="review-form-label" style="text-align:center; margin-bottom:8px;">Your Rating</div>
+        <div class="star-rating-stars" id="starRatingContainer">
+          <span class="star-rating-star active" data-val="1">★</span>
+          <span class="star-rating-star active" data-val="2">★</span>
+          <span class="star-rating-star active" data-val="3">★</span>
+          <span class="star-rating-star active" data-val="4">★</span>
+          <span class="star-rating-star active" data-val="5">★</span>
+        </div>
+        <div class="star-rating-sentiment" id="starRatingSentiment">5.0 — Excellent! 🔥</div>
+      </div>
+
+      <div class="avatar-palette-wrap">
+        <div class="avatar-preview-bubble" id="avatarPreviewBubble" style="background:#6366f1;">S</div>
+        <div style="flex-grow:1;">
+          <div style="font-size:0.75rem; font-weight:600; text-transform:uppercase; color:var(--muted); margin-bottom:6px;">Avatar Color</div>
+          <div class="avatar-color-options">
+            <span class="avatar-color-dot active" data-color="#6366f1" style="background:#6366f1;" onclick="setReviewColor('#6366f1', this)"></span>
+            <span class="avatar-color-dot" data-color="#3b82f6" style="background:#3b82f6;" onclick="setReviewColor('#3b82f6', this)"></span>
+            <span class="avatar-color-dot" data-color="#10b981" style="background:#10b981;" onclick="setReviewColor('#10b981', this)"></span>
+            <span class="avatar-color-dot" data-color="#f59e0b" style="background:#f59e0b;" onclick="setReviewColor('#f59e0b', this)"></span>
+            <span class="avatar-color-dot" data-color="#ec4899" style="background:#ec4899;" onclick="setReviewColor('#ec4899', this)"></span>
+            <span class="avatar-color-dot" data-color="#8b5cf6" style="background:#8b5cf6;" onclick="setReviewColor('#8b5cf6', this)"></span>
+          </div>
+        </div>
+      </div>
+
+      <form id="reviewSubmitForm" onsubmit="submitReview(event)">
+        <div class="review-form-group">
+          <label class="review-form-label" for="reviewName">Your Name <span style="color:var(--accent);">*</span></label>
+          <input type="text" id="reviewName" class="review-form-input" placeholder="e.g. Siddhant Patil" required maxlength="50" oninput="updateAvatarInitial(this.value)" />
+        </div>
+
+        <div class="review-form-group">
+          <label class="review-form-label">Current Academic Year</label>
+          <div class="year-pills-row" id="reviewYearPills">
+            <div class="year-pill-btn" data-year="FE" onclick="setReviewYear('FE', this)">1st (FE)</div>
+            <div class="year-pill-btn active" data-year="SE" onclick="setReviewYear('SE', this)">2nd (SE)</div>
+            <div class="year-pill-btn" data-year="TE" onclick="setReviewYear('TE', this)">3rd (TE)</div>
+            <div class="year-pill-btn" data-year="BE" onclick="setReviewYear('BE', this)">4th (BE)</div>
+          </div>
+        </div>
+
+        <div class="review-form-group">
+          <label class="review-form-label" for="reviewBranch">Branch</label>
+          <select id="reviewBranch" class="review-form-select">
+            <option value="Computer Engineering">Computer Engineering</option>
+            <option value="Information Technology">Information Technology</option>
+            <option value="AI & DS">Artificial Intelligence & Data Science</option>
+            <option value="AIML">Artificial Intelligence & Machine Learning</option>
+            <option value="Electronics & Telecommunication">Electronics & Telecommunication (E&TC)</option>
+            <option value="Mechanical Engineering">Mechanical Engineering</option>
+            <option value="Civil Engineering">Civil Engineering</option>
+            <option value="Electrical Engineering">Electrical Engineering</option>
+            <option value="Robotics & Automation">Robotics & Automation</option>
+            <option value="Other Engineering">Other Engineering Branch</option>
+          </select>
+        </div>
+
+        <div class="review-form-group">
+          <label class="review-form-label" for="reviewCollege">College Name (Optional)</label>
+          <input type="text" id="reviewCollege" class="review-form-input" placeholder="e.g. AISSMS IOIT, Pune / MIT / COEP" maxlength="100" />
+        </div>
+
+        <div class="review-form-group">
+          <label class="review-form-label" for="reviewComment">Your Review / Message <span style="color:var(--accent);">*</span></label>
+          <textarea id="reviewComment" class="review-form-textarea" placeholder="How did SPPUVault PYQs or resources help you in your insem/endsem exams?…" required maxlength="500"></textarea>
+        </div>
+
+        <div id="reviewFormAlert" style="display:none; padding:10px 14px; border-radius:8px; font-size:0.85rem; margin-bottom:1rem;"></div>
+
+        <button type="submit" id="reviewSubmitBtn" class="review-submit-btn">
+          <span>🚀 Publish Review</span>
+        </button>
+      </form>
     </div>
   </div>
 

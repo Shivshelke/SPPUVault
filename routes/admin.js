@@ -13,6 +13,7 @@ const File = require('../models/File');
 const Product = require('../models/Product');
 const Purchase = require('../models/Purchase');
 const Feedback = require('../models/Feedback');
+const Review = require('../models/Review');
 const Student = require('../models/Student');
 const Banner = require('../models/Banner');
 const TelegramPromo = require('../models/TelegramPromo');
@@ -386,6 +387,39 @@ router.get('/feedback', async (req, res) => {
 router.delete('/feedback/:id', async (req, res) => {
   await Feedback.deleteOne({ _id: req.params.id });
   res.json({ success: true });
+});
+
+// GET /admin/reviews - All reviews for moderation
+router.get('/reviews', async (req, res) => {
+  try {
+    const list = await Review.find().sort({ createdAt: -1 });
+    res.json(list);
+  } catch (err) {
+    console.error('Error fetching admin reviews:', err);
+    res.json([]);
+  }
+});
+
+// PATCH /admin/reviews/:id/approve - Approve review to go live
+router.patch('/reviews/:id/approve', async (req, res) => {
+  try {
+    await Review.updateOne({ _id: req.params.id }, { $set: { status: 'approved' } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Approve review error:', err);
+    res.status(500).json({ error: 'Failed to approve review' });
+  }
+});
+
+// DELETE /admin/reviews/:id - Delete review
+router.delete('/reviews/:id', async (req, res) => {
+  try {
+    await Review.deleteOne({ _id: req.params.id });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete review error:', err);
+    res.status(500).json({ error: 'Failed to delete review' });
+  }
 });
 
 // GET /admin/premium-files

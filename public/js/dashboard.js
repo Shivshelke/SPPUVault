@@ -54,6 +54,16 @@ async function loadStats() {
     // Sidebar Badges
     const bFeedback = document.getElementById('badge-feedback');
     const bRequests = document.getElementById('badge-requests');
+    const bReviews = document.getElementById('badge-reviews');
+
+    if (bReviews) {
+      if (stats.pendingReviews > 0) {
+        bReviews.textContent = stats.pendingReviews;
+        bReviews.style.display = 'inline-block';
+      } else {
+        bReviews.style.display = 'none';
+      }
+    }
 
     if (stats.totalFeedback > 0) {
       bFeedback.textContent = stats.totalFeedback;
@@ -99,6 +109,9 @@ document.querySelectorAll('.nav-item[data-panel]').forEach(item => {
     if (panelId === 'feedback') {
       loadFeedback();
       markFeedbackAsRead();
+    }
+    if (panelId === 'reviews') {
+      loadAdminReviews();
     }
     if (panelId === 'banner') loadBannerConfig();
     if (panelId === 'telegram-promo') loadTelegramPromoConfig();
@@ -1064,6 +1077,114 @@ async function deleteFeedback(id) {
       loadFeedback();
     } else {
       alert(data.error || 'Failed to delete');
+    }
+  } catch (e) {
+    alert('Network error');
+  }
+}
+
+// ── Reviews Moderation ────────────────────────────────────────────────────────
+async function loadAdminReviews() {
+  const el = document.getElementById('adminReviewsList');
+  if (!el) return;
+
+  try {
+    const res = await fetch('/admin/reviews');
+    const list = await res.json();
+
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state"><span class="empty-icon">⭐</span>No reviews submitted yet.</div>';
+      return;
+    }
+
+    el.innerHTML = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.25rem;">
+        ${list.map(r => {
+          const isPending = r.status !== 'approved';
+          const starsStr = '★'.repeat(r.rating || 5) + '☆'.repeat(Math.max(0, 5 - (r.rating || 5)));
+          const badgeText = isPending ? '⏳ Pending Approval' : '✅ Approved / Live';
+          const badgeStyle = isPending
+            ? 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);'
+            : 'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);';
+
+          return `
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md, 12px); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 38px; height: 38px; border-radius: 50%; background: ${r.avatarColor || '#6366f1'}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.95rem;">
+                      ${(r.name || 'S').trim().charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style="font-weight: 700; color: var(--text); font-size: 0.95rem;">${escHtml(r.name)}</div>
+                      <div style="font-size: 0.78rem; color: var(--muted);">${escHtml(r.year || 'SE')} ${escHtml(r.branch || '')}</div>
+                    </div>
+                  </div>
+                  <span style="font-size: 0.75rem; font-weight: 600; padding: 4px 8px; border-radius: 6px; ${badgeStyle}">
+                    ${badgeText}
+                  </span>
+                </div>
+
+                <div style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+                  <span style="color: #f59e0b; font-size: 1rem; letter-spacing: 1px;">${starsStr}</span>
+                  <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">${r.rating || 5}.0</span>
+                </div>
+
+                ${r.college ? `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">🏛️ ${escHtml(r.college)}</div>` : ''}
+
+                <div style="font-size: 0.88rem; color: var(--text); line-height: 1.5; margin-bottom: 1rem; background: var(--bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border); white-space: pre-line;">
+                  ${escHtml(r.comment)}
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 0.75rem; font-size: 0.78rem; color: var(--muted);">
+                <span>${formatDate(r.createdAt || new Date())}</span>
+                <div style="display: flex; gap: 8px;">
+                  ${isPending ? `
+                    <button class="btn-primary small" onclick="approveAdminReview('${r._id}')" style="padding: 4px 10px; font-size: 0.78rem; background: #10b981; border-color: #10b981;">
+                      ✓ Approve
+                    </button>
+                  ` : ''}
+                  <button class="btn-del small" onclick="deleteAdminReview('${r._id}')" style="padding: 4px 10px; font-size: 0.78rem;">
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = '<div class="empty-state">Failed to load reviews.</div>';
+  }
+}
+
+async function approveAdminReview(id) {
+  try {
+    const res = await fetch(`/admin/reviews/${id}/approve`, { method: 'PATCH' });
+    const data = await res.json();
+    if (data.success) {
+      loadAdminReviews();
+      loadStats();
+    } else {
+      alert(data.error || 'Failed to approve review');
+    }
+  } catch (e) {
+    alert('Network error');
+  }
+}
+
+async function deleteAdminReview(id) {
+  if (!confirm('Are you sure you want to delete this review?')) return;
+  try {
+    const res = await fetch(`/admin/reviews/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      loadAdminReviews();
+      loadStats();
+    } else {
+      alert(data.error || 'Failed to delete review');
     }
   } catch (e) {
     alert('Network error');
