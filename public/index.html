@@ -219,11 +219,19 @@
       </div>
 
       <!-- ── DYNAMIC NOTICE BANNER ── -->
-      <div id="notice-banner" class="notice-banner">
+      <div id="notice-banner" class="notice-banner" role="alert">
         <div class="notice-banner-inner">
-          <span class="notice-banner-badge">Notice</span>
-          <span id="notice-banner-text" class="notice-banner-text">Important Notice Goes Here</span>
-          <a id="notice-banner-link" href="#" class="notice-banner-link">Learn more &rarr;</a>
+          <div class="notice-left-wrap">
+            <span class="notice-banner-badge">
+              <span class="notice-pulse-dot"></span>
+              Notice
+            </span>
+            <span id="notice-banner-text" class="notice-banner-text">Important Notice Goes Here</span>
+          </div>
+          <a id="notice-banner-link" href="#" class="notice-banner-link" target="_blank" rel="noopener noreferrer">
+            <span class="notice-link-text">Learn more</span>
+            <svg class="notice-arrow-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+          </a>
         </div>
       </div>
 

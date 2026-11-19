@@ -1592,7 +1592,18 @@ async function loadNoticeBanner() {
         
         if (data.link && data.link.trim() !== '') {
           linkEl.href = data.link;
-          linkEl.style.display = 'inline';
+          linkEl.setAttribute('target', '_blank');
+          linkEl.setAttribute('rel', 'noopener noreferrer');
+          const linkTextEl = linkEl.querySelector('.notice-link-text');
+          if (linkTextEl) {
+            const lower = data.link.toLowerCase();
+            if (lower.includes('t.me') || lower.includes('telegram')) {
+              linkTextEl.textContent = 'Join Channel';
+            } else {
+              linkTextEl.textContent = 'Learn more';
+            }
+          }
+          linkEl.style.display = 'inline-flex';
         } else {
           linkEl.style.display = 'none';
         }

@@ -1753,54 +1753,163 @@ a:hover {
   margin: 0;
 }
 
-/* ── NOTICE BANNER ── */
+/* ── DYNAMIC NOTICE BANNER ── */
 .notice-banner {
   display: none;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.07) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  box-shadow: 0 4px 18px -4px rgba(99, 102, 241, 0.12);
   color: var(--text);
-  padding: 12px 16px;
-  font-size: 0.9rem;
-  max-width: 620px;
+  padding: 10px 18px;
+  max-width: 600px;
   width: 100%;
   box-sizing: border-box;
-  border-radius: var(--radius-sm);
-  margin: 20px auto 0;
+  border-radius: 14px;
+  margin: 18px auto 26px;
   text-align: left;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+[data-theme="dark"] .notice-banner {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.18) 100%);
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+}
+
+.notice-banner:hover {
+  border-color: var(--accent);
+  box-shadow: 0 6px 24px -4px rgba(99, 102, 241, 0.2);
 }
 
 .notice-banner-inner {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+}
+
+.notice-left-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
 }
 
 .notice-banner-badge {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
   background: var(--accent);
   color: #ffffff;
-  border-radius: var(--radius-xs);
-  padding: 2px 8px;
-  font-size: 0.7rem;
-  text-transform: uppercase;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.68rem;
   font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.35);
+}
+
+.notice-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: inline-block;
+  animation: noticePulse 1.8s infinite ease-in-out;
+}
+
+@keyframes noticePulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.8;
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
 }
 
 .notice-banner-text {
-  flex: 1;
-  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .notice-banner-link {
-  display: none;
+  display: none; /* Controlled by JS */
+  align-items: center;
+  gap: 6px;
+  background: rgba(99, 102, 241, 0.12);
   color: var(--accent);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+  padding: 6px 14px;
+  border-radius: 20px;
+  text-decoration: none;
   flex-shrink: 0;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+}
+
+[data-theme="dark"] .notice-banner-link {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+  border-color: rgba(139, 92, 246, 0.35);
+}
+
+.notice-banner-link:hover {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.3);
+}
+
+.notice-arrow-icon {
+  transition: transform 0.2s ease;
+}
+
+.notice-banner-link:hover .notice-arrow-icon {
+  transform: translateX(3px);
+}
+
+@media (max-width: 640px) {
+  .notice-banner {
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin: 16px auto 20px;
+  }
+  .notice-banner-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .notice-left-wrap {
+    width: 100%;
+  }
+  .notice-banner-text {
+    white-space: normal;
+    font-size: 0.84rem;
+  }
+  .notice-banner-link {
+    align-self: flex-start;
+  }
 }
 
 /* ── PWA POPUP ── */
