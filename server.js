@@ -60,6 +60,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(jwtSessionMiddleware);
 
+// Canonical Domain Redirect: Redirect www.sppupyq.live -> sppupyq.live
+app.use((req, res, next) => {
+  const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+  if (host.startsWith('www.sppupyq.live')) {
+    return res.redirect(301, `https://sppupyq.live${req.originalUrl}`);
+  }
+  next();
+});
+
 // ── SEO Directory & Dynamic Injections Helper ─────────────────────────────────
 const fs = require('fs');
 
@@ -71,7 +80,7 @@ function getSiteBaseUrl(req) {
       return `${proto}://${host}`;
     }
   }
-  return process.env.APP_URL || 'https://sppuvault.com';
+  return process.env.APP_URL || 'https://sppupyq.live';
 }
 
 function slugify(text) {
