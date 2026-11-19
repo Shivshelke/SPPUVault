@@ -343,8 +343,10 @@ router.get('/stats', async (req, res) => {
     ]);
 
     const byYear = {};
-    if (Array.isArray(byYearRaw)) {
+    if (Array.isArray(byYearRaw) && byYearRaw.length > 0) {
       byYearRaw.forEach(r => { if (r._id) byYear[r._id] = r.count; });
+    } else if (cachedStats && cachedStats.byYear && Object.keys(cachedStats.byYear).length > 0) {
+      Object.assign(byYear, cachedStats.byYear);
     }
 
     cachedStats = {

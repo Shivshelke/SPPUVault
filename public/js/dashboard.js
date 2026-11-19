@@ -42,11 +42,11 @@ async function loadStats() {
   try {
     const res = await fetch('/api/stats?_t=' + Date.now());
     const stats = await res.json();
-    document.getElementById('dTotal').textContent = stats.total;
-    document.getElementById('dFirst').textContent = stats.byYear.first || 0;
-    document.getElementById('dSecond').textContent = stats.byYear.second || 0;
-    document.getElementById('dThird').textContent = stats.byYear.third || 0;
-    document.getElementById('dFourth').textContent = stats.byYear.fourth || 0;
+    document.getElementById('dTotal').textContent = stats.total || 0;
+    document.getElementById('dFirst').textContent = (stats.byYear && stats.byYear.first) || 0;
+    document.getElementById('dSecond').textContent = (stats.byYear && stats.byYear.second) || 0;
+    document.getElementById('dThird').textContent = (stats.byYear && stats.byYear.third) || 0;
+    document.getElementById('dFourth').textContent = (stats.byYear && stats.byYear.fourth) || 0;
     if (document.getElementById('dStudents')) {
       document.getElementById('dStudents').textContent = stats.totalStudents || 0;
     }

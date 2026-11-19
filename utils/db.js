@@ -82,15 +82,77 @@ function withTimeout(promise, ms = DB_TIMEOUT_MS) {
   });
 }
 
-async function getClient() {
-  if (client) return client;
+function isClientAlive() {
+  if (!client || !dbInstance) return false;
+  try {
+    if (!client.topology) return false;
+    if (typeof client.topology.isDestroyed === 'function' && client.topology.isDestroyed()) return false;
+    if (typeof client.topology.isConnected === 'function' && !client.topology.isConnected()) return false;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function resetDb() {
+  const oldClient = client;
+  client = null;
+  dbInstance = null;
+  if (oldClient) {
+    try {
+      await oldClient.close(true);
+    } catch (_) {}
+  }
+}
+
+function isConnectionError(err) {
+  if (!err) return false;
+  const msg = (err.message || '').toLowerCase();
+  const name = err.name || '';
+  return (
+    name === 'MongoNetworkError' ||
+    name === 'MongoServerSelectionError' ||
+    name === 'MongoTopologyClosedError' ||
+    name === 'MongoNotConnectedError' ||
+    name === 'MongoClientClosedError' ||
+    msg.includes('closed') ||
+    msg.includes('connection <monitor>') ||
+    msg.includes('topology was destroyed') ||
+    msg.includes('topology is closed') ||
+    msg.includes('pool destroyed') ||
+    msg.includes('timed out') ||
+    msg.includes('socket') ||
+    msg.includes('econnreset') ||
+    msg.includes('econnrefused') ||
+    msg.includes('epipe')
+  );
+}
+
+async function withRetry(operation) {
+  try {
+    return await operation();
+  } catch (err) {
+    if (isConnectionError(err)) {
+      console.warn('[MongoDB] Stale connection or socket closed, reconnecting and retrying operation once... Reason:', err.message);
+      await resetDb();
+      await getDb(true);
+      return await operation();
+    }
+    throw err;
+  }
+}
+
+async function getClient(forceFresh = false) {
+  if (!forceFresh && client && isClientAlive()) return client;
+
+  await resetDb();
 
   const rawUri = process.env.MONGODB_URI;
   if (!rawUri) throw new Error('[MongoDB] Error: MONGODB_URI is not defined in environment.');
 
   const uri = await resolveMongoUri(rawUri);
 
-  client = new MongoClient(uri, {
+  const c = new MongoClient(uri, {
     maxPoolSize: 2,
     minPoolSize: 0,
     serverSelectionTimeoutMS: 4000,
@@ -100,28 +162,28 @@ async function getClient() {
     socketTimeoutMS: 10000
   });
 
-  client.on('error', () => {
+  c.on('error', () => {
     client = null;
     dbInstance = null;
   });
-  client.on('close', () => {
+  c.on('close', () => {
     client = null;
     dbInstance = null;
   });
 
+  client = c;
   return client;
 }
 
-async function getDb() {
-  if (dbInstance) return dbInstance;
-  const c = await getClient();
+async function getDb(forceFresh = false) {
+  if (!forceFresh && dbInstance && isClientAlive()) return dbInstance;
+  const c = await getClient(forceFresh);
   try {
-    await withTimeout(c.connect(), 3500);
+    await withTimeout(c.connect(), 4000);
     dbInstance = c.db();
     return dbInstance;
   } catch (err) {
-    client = null;
-    dbInstance = null;
+    await resetDb();
     throw err;
   }
 }
@@ -172,20 +234,22 @@ function wrapDoc(doc, collectionName) {
     enumerable: false,
     writable: true,
     value: async function() {
-      const db = await getDb();
-      const col = db.collection(collectionName);
-      if (this._id) {
-        const updateDoc = { ...this };
-        delete updateDoc._id;
-        delete updateDoc.save;
-        delete updateDoc.markModified;
-        delete updateDoc.toObject;
-        await withTimeout(col.updateOne({ _id: toObjectId(this._id) }, { $set: updateDoc }));
-      } else {
-        const res = await withTimeout(col.insertOne(this));
-        this._id = res.insertedId;
-      }
-      return this;
+      return withRetry(async () => {
+        const db = await getDb();
+        const col = db.collection(collectionName);
+        if (this._id) {
+          const updateDoc = { ...this };
+          delete updateDoc._id;
+          delete updateDoc.save;
+          delete updateDoc.markModified;
+          delete updateDoc.toObject;
+          await withTimeout(col.updateOne({ _id: toObjectId(this._id) }, { $set: updateDoc }));
+        } else {
+          const res = await withTimeout(col.insertOne(this));
+          this._id = res.insertedId;
+        }
+        return this;
+      });
     }
   });
 
@@ -259,25 +323,27 @@ class QueryChain {
   }
 
   async toArray() {
-    const db = await getDb();
-    const col = db.collection(this.collectionName);
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(this.collectionName);
 
-    // Normalize _id in filter
-    if (this.filter && this.filter._id) {
-      if (typeof this.filter._id === 'string') {
-        this.filter._id = toObjectId(this.filter._id);
-      } else if (this.filter._id.$in && Array.isArray(this.filter._id.$in)) {
-        this.filter._id.$in = this.filter._id.$in.map(toObjectId);
+      // Normalize _id in filter
+      if (this.filter && this.filter._id) {
+        if (typeof this.filter._id === 'string') {
+          this.filter._id = toObjectId(this.filter._id);
+        } else if (this.filter._id.$in && Array.isArray(this.filter._id.$in)) {
+          this.filter._id.$in = this.filter._id.$in.map(toObjectId);
+        }
       }
-    }
 
-    let cursor = col.find(this.filter, this.projection ? { projection: this.projection } : {});
-    if (this.sortOptions) cursor = cursor.sort(this.sortOptions);
-    if (this.skipNum) cursor = cursor.skip(this.skipNum);
-    if (this.limitNum) cursor = cursor.limit(this.limitNum);
+      let cursor = col.find(this.filter, this.projection ? { projection: this.projection } : {});
+      if (this.sortOptions) cursor = cursor.sort(this.sortOptions);
+      if (this.skipNum) cursor = cursor.skip(this.skipNum);
+      if (this.limitNum) cursor = cursor.limit(this.limitNum);
 
-    const docs = await withTimeout(cursor.toArray());
-    return docs.map(d => wrapDoc(d, this.collectionName));
+      const docs = await withTimeout(cursor.toArray());
+      return docs.map(d => wrapDoc(d, this.collectionName));
+    });
   }
 
   then(resolve, reject) {
@@ -309,13 +375,15 @@ function createModel(collectionName, defaultData = {}) {
   };
 
   ModelConstructor.findOne = async function(filter = {}, projection) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const query = { ...filter };
-    if (query._id) query._id = toObjectId(query._id);
-    const parsedProj = parseProjection(projection);
-    const doc = await withTimeout(col.findOne(query, parsedProj ? { projection: parsedProj } : {}));
-    return wrapDoc(doc, collectionName);
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const query = { ...filter };
+      if (query._id) query._id = toObjectId(query._id);
+      const parsedProj = parseProjection(projection);
+      const doc = await withTimeout(col.findOne(query, parsedProj ? { projection: parsedProj } : {}));
+      return wrapDoc(doc, collectionName);
+    });
   };
 
   ModelConstructor.findById = async function(id, projection) {
@@ -324,72 +392,82 @@ function createModel(collectionName, defaultData = {}) {
   };
 
   ModelConstructor.findByIdAndUpdate = async function(id, update, options = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const _id = toObjectId(id);
-    const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
-    const res = await col.findOneAndUpdate(
-      { _id },
-      updatePayload,
-      { returnDocument: options.new !== false ? 'after' : 'before' }
-    );
-    const doc = res && res.value !== undefined ? res.value : res;
-    return wrapDoc(doc, collectionName);
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const _id = toObjectId(id);
+      const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
+      const res = await col.findOneAndUpdate(
+        { _id },
+        updatePayload,
+        { returnDocument: options.new !== false ? 'after' : 'before' }
+      );
+      const doc = res && res.value !== undefined ? res.value : res;
+      return wrapDoc(doc, collectionName);
+    });
   };
 
   ModelConstructor.findOneAndUpdate = async function(filter, update, options = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const query = { ...filter };
-    if (query._id) query._id = toObjectId(query._id);
-    const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
-    const res = await col.findOneAndUpdate(
-      query,
-      updatePayload,
-      {
-        returnDocument: options.new !== false ? 'after' : 'before',
-        upsert: Boolean(options.upsert)
-      }
-    );
-    const doc = res && res.value !== undefined ? res.value : res;
-    return wrapDoc(doc, collectionName);
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const query = { ...filter };
+      if (query._id) query._id = toObjectId(query._id);
+      const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
+      const res = await col.findOneAndUpdate(
+        query,
+        updatePayload,
+        {
+          returnDocument: options.new !== false ? 'after' : 'before',
+          upsert: Boolean(options.upsert)
+        }
+      );
+      const doc = res && res.value !== undefined ? res.value : res;
+      return wrapDoc(doc, collectionName);
+    });
   };
 
   ModelConstructor.findByIdAndDelete = async function(id) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const res = await col.findOneAndDelete({ _id: toObjectId(id) });
-    const doc = res && res.value !== undefined ? res.value : res;
-    return wrapDoc(doc, collectionName);
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const res = await col.findOneAndDelete({ _id: toObjectId(id) });
+      const doc = res && res.value !== undefined ? res.value : res;
+      return wrapDoc(doc, collectionName);
+    });
   };
 
   ModelConstructor.findOneAndDelete = async function(filter) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const query = { ...filter };
-    if (query._id) query._id = toObjectId(query._id);
-    const res = await col.findOneAndDelete(query);
-    const doc = res && res.value !== undefined ? res.value : res;
-    return wrapDoc(doc, collectionName);
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const query = { ...filter };
+      if (query._id) query._id = toObjectId(query._id);
+      const res = await col.findOneAndDelete(query);
+      const doc = res && res.value !== undefined ? res.value : res;
+      return wrapDoc(doc, collectionName);
+    });
   };
 
   ModelConstructor.create = async function(data) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    if (Array.isArray(data)) {
-      const records = data.map(d => {
-        const item = { ...defaultData, ...d };
-        if (collectionName === 'files' && !item.uploadDate) item.uploadDate = new Date();
-        return item;
-      });
-      const res = await withTimeout(col.insertMany(records));
-      return records.map((d, i) => wrapDoc({ ...d, _id: res.insertedIds[i] }, collectionName));
-    }
-    const doc = { ...defaultData, ...data };
-    if (collectionName === 'files' && !doc.uploadDate) doc.uploadDate = new Date();
-    const res = await withTimeout(col.insertOne(doc));
-    doc._id = res.insertedId;
-    return wrapDoc(doc, collectionName);
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      if (Array.isArray(data)) {
+        const records = data.map(d => {
+          const item = { ...defaultData, ...d };
+          if (collectionName === 'files' && !item.uploadDate) item.uploadDate = new Date();
+          return item;
+        });
+        const res = await withTimeout(col.insertMany(records));
+        return records.map((d, i) => wrapDoc({ ...d, _id: res.insertedIds[i] }, collectionName));
+      }
+      const doc = { ...defaultData, ...data };
+      if (collectionName === 'files' && !doc.uploadDate) doc.uploadDate = new Date();
+      const res = await withTimeout(col.insertOne(doc));
+      doc._id = res.insertedId;
+      return wrapDoc(doc, collectionName);
+    });
   };
 
   ModelConstructor.insertOne = async function(data) {
@@ -401,52 +479,66 @@ function createModel(collectionName, defaultData = {}) {
   };
 
   ModelConstructor.updateOne = async function(filter, update, options = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const query = { ...filter };
-    if (query._id) query._id = toObjectId(query._id);
-    const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
-    return withTimeout(col.updateOne(query, updatePayload, options));
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const query = { ...filter };
+      if (query._id) query._id = toObjectId(query._id);
+      const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
+      return withTimeout(col.updateOne(query, updatePayload, options));
+    });
   };
 
   ModelConstructor.updateMany = async function(filter, update, options = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
-    return withTimeout(col.updateMany(filter, updatePayload, options));
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
+      return withTimeout(col.updateMany(filter, updatePayload, options));
+    });
   };
 
   ModelConstructor.deleteOne = async function(filter) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    const query = { ...filter };
-    if (query._id) query._id = toObjectId(query._id);
-    return withTimeout(col.deleteOne(query));
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      const query = { ...filter };
+      if (query._id) query._id = toObjectId(query._id);
+      return withTimeout(col.deleteOne(query));
+    });
   };
 
   ModelConstructor.deleteMany = async function(filter = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    return withTimeout(col.deleteMany(filter));
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      return withTimeout(col.deleteMany(filter));
+    });
   };
 
   ModelConstructor.countDocuments = async function(filter = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    return withTimeout(col.countDocuments(filter));
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      return withTimeout(col.countDocuments(filter));
+    });
   };
 
   ModelConstructor.distinct = async function(field, filter = {}) {
-    const db = await getDb();
-    const col = db.collection(collectionName);
-    return withTimeout(col.distinct(field, filter));
+    return withRetry(async () => {
+      const db = await getDb();
+      const col = db.collection(collectionName);
+      return withTimeout(col.distinct(field, filter));
+    });
   };
 
   ModelConstructor.aggregate = function(pipeline = []) {
     const p = (async () => {
-      const db = await getDb();
-      const col = db.collection(collectionName);
-      return withTimeout(col.aggregate(pipeline).toArray());
+      return withRetry(async () => {
+        const db = await getDb();
+        const col = db.collection(collectionName);
+        return withTimeout(col.aggregate(pipeline).toArray());
+      });
     })();
     p.toArray = () => p;
     return p;
