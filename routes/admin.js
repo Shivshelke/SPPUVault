@@ -463,16 +463,22 @@ router.post('/config/subject', async (req, res) => {
 
   try {
     let doc = await CategoryConfig.findOne({ key: 'years_config' });
-    if (!doc) {
-      doc = new CategoryConfig({ key: 'years_config' });
+    if (!doc || !doc.years) {
+      doc = { key: 'years_config', years: {} };
+    }
+
+    if (!doc.years[year]) {
+      const yearLabels = { first: '1st Year', second: '2nd Year', third: '3rd Year', fourth: '4th Year' };
+      doc.years[year] = {
+        label: yearLabels[year] || (year.charAt(0).toUpperCase() + year.slice(1) + ' Year'),
+        branches: [],
+        subjects: year === 'first' ? [] : {}
+      };
     }
 
     const yearData = doc.years[year];
-    if (!yearData) return res.status(400).json({ error: 'Invalid year.' });
-
     const cleanBranch = branch ? branch.trim() : '';
     const cleanPattern = pattern ? pattern.trim() : '';
-
     const subjectsArray = subject.split(',').map(s => s.trim()).filter(Boolean);
 
     for (const cleanSubject of subjectsArray) {
@@ -506,12 +512,21 @@ router.post('/config/subject', async (req, res) => {
       }
     }
 
-    doc.markModified('years');
-    await doc.save();
+    await CategoryConfig.updateOne(
+      { key: 'years_config' },
+      { $set: { years: doc.years } },
+      { upsert: true }
+    );
+
+    try {
+      const apiRouter = require('./api');
+      if (typeof apiRouter.clearConfigCache === 'function') apiRouter.clearConfigCache();
+    } catch (_) {}
+
     res.json({ success: true, count: subjectsArray.length });
   } catch (e) {
     console.error('Error saving subject config:', e);
-    res.status(500).json({ error: 'Database save error.' });
+    res.status(500).json({ error: e.message || 'Database save error.' });
   }
 });
 
@@ -526,24 +541,43 @@ router.post('/config/branch', async (req, res) => {
 
   try {
     let doc = await CategoryConfig.findOne({ key: 'years_config' });
-    if (!doc) {
-      doc = new CategoryConfig({ key: 'years_config' });
+    if (!doc || !doc.years) {
+      doc = { key: 'years_config', years: {} };
+    }
+
+    if (!doc.years[year]) {
+      const yearLabels = { first: '1st Year', second: '2nd Year', third: '3rd Year', fourth: '4th Year' };
+      doc.years[year] = {
+        label: yearLabels[year] || (year.charAt(0).toUpperCase() + year.slice(1) + ' Year'),
+        branches: [],
+        subjects: year === 'first' ? [] : {}
+      };
     }
 
     const yearData = doc.years[year];
-    if (!yearData) return res.status(400).json({ error: 'Invalid year.' });
-
     const cleanBranch = branch.trim();
+    if (!Array.isArray(yearData.branches)) {
+      yearData.branches = [];
+    }
     if (!yearData.branches.includes(cleanBranch)) {
       yearData.branches.push(cleanBranch);
     }
 
-    doc.markModified('years');
-    await doc.save();
+    await CategoryConfig.updateOne(
+      { key: 'years_config' },
+      { $set: { years: doc.years } },
+      { upsert: true }
+    );
+
+    try {
+      const apiRouter = require('./api');
+      if (typeof apiRouter.clearConfigCache === 'function') apiRouter.clearConfigCache();
+    } catch (_) {}
+
     res.json({ success: true });
   } catch (e) {
     console.error('Error saving branch config:', e);
-    res.status(500).json({ error: 'Database save error.' });
+    res.status(500).json({ error: e.message || 'Database save error.' });
   }
 });
 
@@ -747,6 +781,10 @@ router.post('/banner', requireAdmin, async (req, res) => {
     banner.link = link;
     banner.isActive = isActive;
     await banner.save();
+    try {
+      const apiRouter = require('./api');
+      if (typeof apiRouter.clearBannerCache === 'function') apiRouter.clearBannerCache();
+    } catch (_) {}
     res.json({ success: true, banner });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -808,6 +846,10 @@ router.post('/telegram-promo', requireAdmin, async (req, res) => {
     if (fourthYearUrl !== undefined) promo.fourthYearUrl = fourthYearUrl;
 
     await promo.save();
+    try {
+      const apiRouter = require('./api');
+      if (typeof apiRouter.clearPromoCache === 'function') apiRouter.clearPromoCache();
+    } catch (_) {}
     res.json({ success: true, promo });
   } catch (err) {
     res.status(500).json({ error: err.message });

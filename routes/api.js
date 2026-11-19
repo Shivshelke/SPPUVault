@@ -183,6 +183,22 @@ const CategoryConfig = require('../models/CategoryConfig');
 let cachedConfig = null;
 let lastConfigTime = 0;
 
+function clearConfigCache() {
+  cachedConfig = null;
+  lastConfigTime = 0;
+}
+function clearBannerCache() {
+  cachedBanner = null;
+  lastBannerTime = 0;
+}
+function clearPromoCache() {
+  cachedPromo = null;
+  lastPromoTime = 0;
+}
+router.clearConfigCache = clearConfigCache;
+router.clearBannerCache = clearBannerCache;
+router.clearPromoCache = clearPromoCache;
+
 // GET /api/config
 router.get('/config', async (req, res) => {
   if (cachedConfig && (Date.now() - lastConfigTime < 1000 * 60 * 10)) {

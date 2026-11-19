@@ -65,7 +65,7 @@ async function resolveMongoUri(uri) {
   }
 }
 
-const DB_TIMEOUT_MS = 3500;
+const DB_TIMEOUT_MS = 8000;
 
 function withTimeout(promise, ms = DB_TIMEOUT_MS) {
   let timer;
