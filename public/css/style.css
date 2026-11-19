@@ -744,6 +744,13 @@ a:hover {
   margin-bottom: 12px;
 }
 
+#branchStep,
+#subjectStep,
+#fileStep,
+#browserPanel {
+  scroll-margin-top: calc(var(--nav-height) + 20px);
+}
+
 /* Tag grid for branches/subjects */
 .tag-grid {
   display: flex;

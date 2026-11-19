@@ -479,8 +479,14 @@ async function selectBranch(branch, yearData) {
     t.classList.toggle('active', t.textContent === branch)
   );
 
-  document.getElementById('subjectStep').style.display = 'block';
+  const subjectStep = document.getElementById('subjectStep');
+  subjectStep.style.display = 'block';
   document.getElementById('fileStep').style.display = 'none';
+
+  // Smoothly scroll to the subject section so the student doesn't have to scroll past branches manually
+  setTimeout(() => {
+    subjectStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
 
   // Show skeletons for subjects while loading
   const subjectGrid = document.getElementById('subjectGrid');
@@ -664,12 +670,10 @@ async function selectSubject(subject, pattern) {
   const fileStep = document.getElementById('fileStep');
   fileStep.style.display = 'block';
 
-  // Scroll to the PDFs on mobile so the user sees them
-  if (window.innerWidth <= 768) {
-    setTimeout(() => {
-      fileStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100); // small delay to allow DOM to render
-  }
+  // Scroll smoothly to the PDFs so the student immediately sees the papers
+  setTimeout(() => {
+    fileStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
 
   document.getElementById('fileStepLabel').textContent = `Papers for: ${subject}`;
 
