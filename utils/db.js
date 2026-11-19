@@ -380,12 +380,12 @@ function createModel(collectionName, defaultData = {}) {
         if (collectionName === 'files' && !item.uploadDate) item.uploadDate = new Date();
         return item;
       });
-      const res = await col.insertMany(records);
+      const res = await withTimeout(col.insertMany(records));
       return records.map((d, i) => wrapDoc({ ...d, _id: res.insertedIds[i] }, collectionName));
     }
     const doc = { ...defaultData, ...data };
     if (collectionName === 'files' && !doc.uploadDate) doc.uploadDate = new Date();
-    const res = await col.insertOne(doc);
+    const res = await withTimeout(col.insertOne(doc));
     doc._id = res.insertedId;
     return wrapDoc(doc, collectionName);
   };
@@ -404,14 +404,14 @@ function createModel(collectionName, defaultData = {}) {
     const query = { ...filter };
     if (query._id) query._id = toObjectId(query._id);
     const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
-    return col.updateOne(query, updatePayload, options);
+    return withTimeout(col.updateOne(query, updatePayload, options));
   };
 
   ModelConstructor.updateMany = async function(filter, update, options = {}) {
     const db = await getDb();
     const col = db.collection(collectionName);
     const updatePayload = update.$set || update.$addToSet || update.$pull || update.$inc ? update : { $set: update };
-    return col.updateMany(filter, updatePayload, options);
+    return withTimeout(col.updateMany(filter, updatePayload, options));
   };
 
   ModelConstructor.deleteOne = async function(filter) {
@@ -419,13 +419,13 @@ function createModel(collectionName, defaultData = {}) {
     const col = db.collection(collectionName);
     const query = { ...filter };
     if (query._id) query._id = toObjectId(query._id);
-    return col.deleteOne(query);
+    return withTimeout(col.deleteOne(query));
   };
 
   ModelConstructor.deleteMany = async function(filter = {}) {
     const db = await getDb();
     const col = db.collection(collectionName);
-    return col.deleteMany(filter);
+    return withTimeout(col.deleteMany(filter));
   };
 
   ModelConstructor.countDocuments = async function(filter = {}) {

@@ -88,66 +88,74 @@ router.get('/dashboard', (req, res) => {
 // POST /admin/upload
 router.post('/upload', (req, res) => {
   upload.single('pdf')(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message });
-    const { year, branch, subject, customSubject, contentType, semester, isLink, linkUrl, customFileName, pattern } = req.body;
-    
-    const finalSubject = customSubject && customSubject.trim() ? customSubject.trim() : subject;
-    
-    if (isLink === 'true') {
-      if (!linkUrl) return res.status(400).json({ error: 'Link URL required.' });
+    if (err) {
+      console.error('Multer file upload error:', err);
+      return res.status(400).json({ error: err.message || 'File upload failed.' });
+    }
+    try {
+      const { year, branch, subject, customSubject, contentType, semester, isLink, linkUrl, customFileName, pattern } = req.body;
       
-      const urls = linkUrl.split(/[\r\n,]+/).map(u => u.trim()).filter(Boolean);
-      if (!urls.length) return res.status(400).json({ error: 'At least one valid URL is required.' });
+      const finalSubject = customSubject && customSubject.trim() ? customSubject.trim() : subject;
       
-      const promises = urls.map((url, i) => {
-        let fileName = '';
-        if (urls.length === 1 && customFileName && customFileName.trim()) {
-          fileName = customFileName.trim();
-        } else {
-          fileName = `${finalSubject || 'document'}${urls.length > 1 ? '_' + (i + 1) : ''}.pdf`;
-        }
+      if (isLink === 'true') {
+        if (!linkUrl) return res.status(400).json({ error: 'Link URL required.' });
+        
+        const urls = linkUrl.split(/[\r\n,]+/).map(u => u.trim()).filter(Boolean);
+        if (!urls.length) return res.status(400).json({ error: 'At least one valid URL is required.' });
+        
+        const promises = urls.map((url, i) => {
+          let fileName = '';
+          if (urls.length === 1 && customFileName && customFileName.trim()) {
+            fileName = customFileName.trim();
+          } else {
+            fileName = `${finalSubject || 'document'}${urls.length > 1 ? '_' + (i + 1) : ''}.pdf`;
+          }
+          
+          const record = {
+            originalName: fileName,
+            storedName: `google-drive_${Date.now()}_${i}`,
+            year: year || 'any',
+            branch: branch || 'any',
+            subject: finalSubject,
+            semester: semester || 'any',
+            size: 0,
+            uploadedBy: req.session.adminUser,
+            url: url,
+            publicId: `google-drive_${Date.now()}_${i}`,
+            contentType: contentType || 'regular',
+            pattern: pattern || '2024',
+            uploadDate: new Date()
+          };
+          return File.create(record);
+        });
+        
+        const savedRecords = await Promise.all(promises);
+        return res.json({ success: true, files: savedRecords });
+      } else {
+        if (!req.file) return res.status(400).json({ error: 'File required.' });
         
         const record = {
-          originalName: fileName,
-          storedName: `google-drive_${Date.now()}_${i}`,
+          originalName: (customFileName && customFileName.trim()) ? customFileName.trim() : req.file.originalname,
+          storedName: req.file.filename || req.file.public_id,
           year: year || 'any',
           branch: branch || 'any',
           subject: finalSubject,
           semester: semester || 'any',
-          size: 0,
+          size: req.file.size || 0,
           uploadedBy: req.session.adminUser,
-          url: url,
-          publicId: `google-drive_${Date.now()}_${i}`,
+          url: req.file.path,
+          publicId: req.file.filename || req.file.public_id,
           contentType: contentType || 'regular',
           pattern: pattern || '2024',
           uploadDate: new Date()
         };
-        return File.create(record);
-      });
-      
-      const savedRecords = await Promise.all(promises);
-      return res.json({ success: true, files: savedRecords });
-    } else {
-      if (!req.file) return res.status(400).json({ error: 'File required.' });
-      
-      const record = {
-        originalName: (customFileName && customFileName.trim()) ? customFileName.trim() : req.file.originalname,
-        storedName: req.file.filename || req.file.public_id,
-        year: year || 'any',
-        branch: branch || 'any',
-        subject: finalSubject,
-        semester: semester || 'any',
-        size: req.file.size || 0,
-        uploadedBy: req.session.adminUser,
-        url: req.file.path,
-        publicId: req.file.filename || req.file.public_id,
-        contentType: contentType || 'regular',
-        pattern: pattern || '2024',
-        uploadDate: new Date()
-      };
-      
-      const saved = await File.create(record);
-      return res.json({ success: true, file: saved });
+        
+        const saved = await File.create(record);
+        return res.json({ success: true, file: saved });
+      }
+    } catch (saveErr) {
+      console.error('Save paper error:', saveErr);
+      return res.status(500).json({ error: saveErr.message || 'Failed to save paper.' });
     }
   });
 });
@@ -345,23 +353,33 @@ router.put('/files/:id/pin', async (req, res) => {
 // GET /admin/files
 router.get('/files', async (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-  const { contentType, year, search } = req.query;
-  const query = contentType
-    ? { contentType }
-    : { contentType: 'regular' };
-  if (year) query.year = year;
-  if (search) {
-    const r = new RegExp(search, 'i');
-    query.$or = [{ originalName: r }, { subject: r }, { branch: r }];
+  try {
+    const { contentType, year, search } = req.query;
+    const query = contentType
+      ? { contentType }
+      : { contentType: 'regular' };
+    if (year) query.year = year;
+    if (search) {
+      const r = new RegExp(search, 'i');
+      query.$or = [{ originalName: r }, { subject: r }, { branch: r }];
+    }
+    const files = await File.find(query).sort({ isPinned: -1, uploadDate: -1 });
+    res.json(files);
+  } catch (err) {
+    console.error('Error fetching admin files:', err);
+    res.json([]);
   }
-  const files = await File.find(query).sort({ isPinned: -1, uploadDate: -1 });
-  res.json(files);
 });
 
 // GET /admin/feedback
 router.get('/feedback', async (req, res) => {
-  const list = await Feedback.find().sort({ date: -1 });
-  res.json(list);
+  try {
+    const list = await Feedback.find().sort({ date: -1 });
+    res.json(list);
+  } catch (err) {
+    console.error('Error fetching feedback:', err);
+    res.json([]);
+  }
 });
 
 // DELETE /admin/feedback/:id
