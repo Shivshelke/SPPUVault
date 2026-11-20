@@ -355,10 +355,25 @@ class QueryChain {
   }
 }
 
+function resolveDefaults(defaultData) {
+  if (!defaultData || typeof defaultData !== 'object') return {};
+  const result = {};
+  for (const [key, val] of Object.entries(defaultData)) {
+    if (typeof val === 'function') {
+      result[key] = val();
+    } else if (val instanceof Date) {
+      result[key] = new Date();
+    } else {
+      result[key] = val;
+    }
+  }
+  return result;
+}
+
 function createModel(collectionName, defaultData = {}) {
   // Support `new Model(data)` constructor syntax
   function ModelConstructor(data = {}) {
-    const instance = { ...defaultData, ...data };
+    const instance = { ...resolveDefaults(defaultData), ...data };
     return wrapDoc(instance, collectionName);
   }
 
@@ -455,15 +470,17 @@ function createModel(collectionName, defaultData = {}) {
       const col = db.collection(collectionName);
       if (Array.isArray(data)) {
         const records = data.map(d => {
-          const item = { ...defaultData, ...d };
+          const item = { ...resolveDefaults(defaultData), ...d };
           if (collectionName === 'files' && !item.uploadDate) item.uploadDate = new Date();
+          if (collectionName === 'students' && (!item.registeredAt || new Date(item.registeredAt).getTime() === 0)) item.registeredAt = new Date();
           return item;
         });
         const res = await withTimeout(col.insertMany(records));
         return records.map((d, i) => wrapDoc({ ...d, _id: res.insertedIds[i] }, collectionName));
       }
-      const doc = { ...defaultData, ...data };
+      const doc = { ...resolveDefaults(defaultData), ...data };
       if (collectionName === 'files' && !doc.uploadDate) doc.uploadDate = new Date();
+      if (collectionName === 'students' && (!doc.registeredAt || new Date(doc.registeredAt).getTime() === 0)) doc.registeredAt = new Date();
       const res = await withTimeout(col.insertOne(doc));
       doc._id = res.insertedId;
       return wrapDoc(doc, collectionName);

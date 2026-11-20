@@ -1694,7 +1694,7 @@ window.loadAdminStudents = async function () {
               <td style="font-weight:600; color:var(--text)">@${escHtml(s.username)}</td>
               <td style="color:var(--muted)">${escHtml(s.email)}</td>
               <td>${premiumBadge}</td>
-              <td>${formatDate(s.registeredAt)}</td>
+              <td>${formatDate(s.registeredAt || (s._id ? new Date(parseInt(String(s._id).substring(0, 8), 16) * 1000) : null))}</td>
               <td>${revokeBtn}</td>
             </tr>
             `;

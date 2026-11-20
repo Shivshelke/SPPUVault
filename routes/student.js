@@ -53,7 +53,8 @@ router.post('/google-login', loginLimiter, async (req, res) => {
         username: name || email.split('@')[0],
         email,
         password: hashed,
-        isPremium: false
+        isPremium: false,
+        registeredAt: new Date()
       });
     }
 
@@ -89,7 +90,13 @@ router.post('/register', loginLimiter, async (req, res) => {
     if (exists) return res.status(400).json({ error: 'Username or email already in use.' });
 
     const hashed = await bcrypt.hash(password, 10);
-    const student = await Student.create({ username, email, password: hashed, isPremium: false });
+    const student = await Student.create({
+      username,
+      email,
+      password: hashed,
+      isPremium: false,
+      registeredAt: new Date()
+    });
 
     const token = signToken({
       isStudent: true,

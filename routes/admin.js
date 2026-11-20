@@ -754,8 +754,19 @@ router.post('/reject-premium/:id', async (req, res) => {
 // GET /admin/students
 router.get('/students', async (req, res) => {
   try {
-    const students = await Student.find({}, '-password').sort({ registeredAt: -1 });
-    res.json(students);
+    const students = await Student.find({}, '-password').sort({ registeredAt: -1, _id: -1 });
+    const formatted = students.map(s => {
+      let regDate = s.registeredAt;
+      if (!regDate || new Date(regDate).getTime() === 0) {
+        if (s._id) {
+          try {
+            regDate = new Date(parseInt(s._id.toString().substring(0, 8), 16) * 1000);
+          } catch (e) {}
+        }
+      }
+      return { ...s, registeredAt: regDate };
+    });
+    res.json(formatted);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch students' });
   }
