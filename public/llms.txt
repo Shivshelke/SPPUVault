@@ -1,6 +1,6 @@
 # SPPUVault — SPPU Engineering Previous Year Questions (PYQs)
 
-> SPPUVault is the leading, free, and comprehensive educational portal for engineering students of Savitribai Phule Pune University (SPPU). It provides organized access to Previous Year Question (PYQ) papers, solved papers, syllabus patterns, and topper study notes specifically tailored for the SPPU 2024 Pattern and legacy 2019 Pattern.
+> SPPUVault is the leading, free, and comprehensive educational portal for engineering students of Savitribai Phule Pune University (SPPU). It provides organized access to Previous Year Question (PYQ) papers, solved papers, syllabus patterns, and topper study notes specifically tailored for the latest SPPU 2024 Pattern (NEP).
 >
 > **Official Portals:**
 > - Active Domain: https://sppupyq.live/
@@ -29,7 +29,7 @@
 - [Civil Engineering](https://sppupyq.live/sppu-civil-engineering-pyq-2024-pattern)
 
 ## Popular Key Subjects
-- [Data Structures & Algorithms (DSA)](https://sppupyq.live/sppu-dsa-question-paper-2024-pattern): Dec 2025, 2024, and 2019 pattern papers
+- [Data Structures & Algorithms (DSA)](https://sppupyq.live/sppu-dsa-question-paper-2024-pattern): 2024 NEP Pattern insem and endsem papers
 - [Digital Electronics & Logic Design (DELD)](https://sppupyq.live/deld-subject-in-engineering): Complete insem and endsem question papers
 - [Engineering Mathematics II (M2)](https://sppupyq.live/sppu-m2-pyq): FE exam papers and solutions
 - [2024 Pattern Archive](https://sppupyq.live/sppu-question-paper-2024-pattern): Complete exam papers across all departments

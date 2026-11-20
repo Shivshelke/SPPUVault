@@ -499,7 +499,6 @@ app.get('/sitemap.xml', ensureDbConnected, async (req, res) => {
     urls.add(`${base}/deld-subject-in-engineering`);
     urls.add(`${base}/deld-subject`);
     urls.add(`${base}/sppu-m2-pyq`);
-    urls.add(`${base}/sppu-question-paper-2019-pattern`);
 
     // Add Year page catalogs
     const yearOrder = ['first', 'second', 'third', 'fourth'];
@@ -678,6 +677,9 @@ app.get('/second-year-aiml-engineering/data-structures-algoriths', (req, res) =>
 });
 app.get('/sppu-2025-pattern', (req, res) => {
   return res.redirect(301, '/sppu-pyq-2024-pattern');
+});
+app.get('/sppu-question-paper-2019-pattern', (req, res) => {
+  return res.redirect(301, '/sppu-pyq-drive-2024-pattern');
 });
 app.get('/deld', (req, res) => {
   return res.redirect(301, '/second-year-computer-engineering/digital-electronics-and-logic-design');

@@ -214,9 +214,13 @@ async function init() {
       if (authData.loggedIn) {
         if (nav) {
           nav.innerHTML = `
-            <span style="color:var(--text); font-weight:600; font-size:0.9rem;">Hi, ${escHtml(authData.username)}</span>
-            <a href="/my-purchases.html" class="btn-ghost" style="padding:0.4rem 0.8rem; font-size:0.85rem; text-decoration:none;">My Purchases</a>
-            <button class="btn-ghost" onclick="doStudentLogout()" style="padding:0.4rem 0.8rem; font-size:0.85rem">Logout</button>
+            <a href="/my-purchases.html" class="nav-user-pill" title="My Account">
+              <span class="nav-user-avatar">👤</span>
+              <span class="nav-user-name">${escHtml(authData.username)}</span>
+            </a>
+            <button class="nav-logout-btn" onclick="doStudentLogout()" title="Logout">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+            </button>
           `;
           nav.style.visibility = 'visible';
         }
@@ -246,7 +250,7 @@ async function init() {
               window.open(pendingSol, '_blank', 'noopener,noreferrer');
             }, 300);
           }
-        } catch (e) {}
+        } catch (e) { }
       } else {
         if (nav) {
           nav.innerHTML = `
@@ -265,8 +269,10 @@ async function init() {
       const nav = document.getElementById('studentAuthNav');
       if (nav) {
         nav.innerHTML = `
-          <a href="/student-login.html" class="btn-ghost"
-            style="color:var(--accent)!important; border-color:var(--accent)">Login / Sign Up</a>
+          <a href="/student-login.html" class="nav-cta-btn">
+            <span>Get Started</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+          </a>
         `;
         nav.style.visibility = 'visible';
       }
@@ -519,46 +525,33 @@ async function selectBranch(branch, yearData) {
     const allSubjects = [...new Set([...configSubjects, ...subjectsWithFiles])];
     buildSubjectTags(allSubjects.length ? allSubjects : subjectsWithFiles, false);
   } else {
-    // Group subjects by pattern: { "2024 Pattern": [...], "2019 Pattern": [...] }
-    const subjectsByPattern = {
-      "2024 Pattern": [],
-      "2019 Pattern": []
-    };
-
+    // Strictly 2024 Pattern subjects only
+    const subjects2024 = [];
     if (configSubjects) {
       if (Array.isArray(configSubjects)) {
         configSubjects.forEach(s => {
-          if (s.toLowerCase().includes('2019')) {
-            subjectsByPattern["2019 Pattern"].push(s);
-          } else {
-            subjectsByPattern["2024 Pattern"].push(s);
+          if (!s.toLowerCase().includes('2019')) {
+            subjects2024.push(s);
           }
         });
       } else if (typeof configSubjects === 'object') {
         if (configSubjects["2024 Pattern"]) {
-          subjectsByPattern["2024 Pattern"] = [...configSubjects["2024 Pattern"]];
-        }
-        if (configSubjects["2019 Pattern"]) {
-          subjectsByPattern["2019 Pattern"] = [...configSubjects["2019 Pattern"]];
+          subjects2024.push(...configSubjects["2024 Pattern"]);
+        } else if (Array.isArray(configSubjects)) {
+          subjects2024.push(...configSubjects);
         }
       }
     }
 
-    // Add subjects with files
+    // Add subjects with files for 2024
     files.forEach(f => {
-      const patName = (f.pattern === '2019') ? '2019 Pattern' : '2024 Pattern';
-      if (!subjectsByPattern[patName]) {
-        subjectsByPattern[patName] = [];
-      }
-      if (!subjectsByPattern[patName].includes(f.subject)) {
-        const otherPat = (patName === '2019 Pattern') ? '2024 Pattern' : '2019 Pattern';
-        if (!subjectsByPattern[otherPat] || !subjectsByPattern[otherPat].includes(f.subject)) {
-          subjectsByPattern[patName].push(f.subject);
-        }
+      if (f.pattern !== '2019' && !subjects2024.includes(f.subject)) {
+        subjects2024.push(f.subject);
       }
     });
 
-    buildSubjectTags(subjectsByPattern, true);
+    const finalSubjects = subjects2024.length ? subjects2024 : subjectsWithFiles.filter(s => !s.toLowerCase().includes('2019'));
+    buildSubjectTags(finalSubjects, false);
   }
 }
 
@@ -655,7 +648,7 @@ function buildSubjectTags(subjects, isGrouped = false) {
 }
 
 // ── Subject selection ─────────────────────────────────────────────────────────
-async function selectSubject(subject, pattern) {
+async function selectSubject(subject, pattern = '2024') {
   if (!isRouting) {
     if (currentYear === 'first') {
       history.pushState(null, '', getSeoUrl(currentYear, 'FE', subject));
@@ -740,13 +733,13 @@ async function selectSubject(subject, pattern) {
                 </thead>
                 <tbody>
                   ${files.map(f => {
-                    const pat = f.pattern === '2019' ? '2019 Pattern (legacy)' : '2024 Pattern';
-                    let session = 'Official Exam Paper';
-                    if (/dec.*2025/i.test(f.originalName)) session = 'Dec 2025 (Insem)';
-                    else if (/2025/i.test(f.originalName)) session = '2025 Session';
-                    else if (/2024/i.test(f.originalName)) session = '2024 Session';
-                    else if (/_(\\d+)\\.pdf/i.test(f.originalName)) session = `Exam Paper #${f.originalName.match(/_(\\d+)\\.pdf/i)[1]}`;
-                    return `
+          const pat = '2024 Pattern';
+          let session = 'Official Exam Paper';
+          if (/dec.*2025/i.test(f.originalName)) session = 'Dec 2025 (Insem)';
+          else if (/2025/i.test(f.originalName)) session = '2025 Session';
+          else if (/2024/i.test(f.originalName)) session = '2024 Session';
+          else if (/_(\\d+)\\.pdf/i.test(f.originalName)) session = `Exam Paper #${f.originalName.match(/_(\\d+)\\.pdf/i)[1]}`;
+          return `
                     <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
                       <td style="padding:8px 10px;"><span style="color:#10b981; font-weight:600;">${pat}</span></td>
                       <td style="padding:8px 10px;">${escHtml(f.branch || 'Computer/AIML')}</td>
@@ -756,7 +749,7 @@ async function selectSubject(subject, pattern) {
                         <a href="/api/download/${f._id}" style="color:var(--accent); font-weight:600; text-decoration:none; font-size:0.85rem;" download="${escHtml(f.originalName || f.subject + '.pdf')}">⬇ Download</a>
                       </td>
                     </tr>`;
-                  }).join('')}
+        }).join('')}
                 </tbody>
               </table>
             </div>
@@ -818,7 +811,7 @@ function renderFileGrid(files, gridId) {
       ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 999px;">PINNED</span>`
       : '';
 
-    const patternBadge = `<span class="file-pattern-tag">${f.pattern === '2019' ? '2019 Pattern' : '2024 Pattern'}</span>`;
+    const patternBadge = `<span class="file-pattern-tag">2024 Pattern</span>`;
 
     return `
       <div class="file-card fade-in-card ${isPinned ? 'pinned-file-card' : ''}" style="animation-delay: ${i * 0.05}s;">
@@ -854,7 +847,7 @@ function renderFileGrid(files, gridId) {
   }).join('');
 }
 
-window.handleViewSolutionClick = async function(solutionUrl, paperName) {
+window.handleViewSolutionClick = async function (solutionUrl, paperName) {
   if (!solutionUrl) return;
 
   // Double check login status if local variable is false
@@ -880,14 +873,14 @@ window.handleViewSolutionClick = async function(solutionUrl, paperName) {
   }
 };
 
-window.showSolutionLoginModal = function(paperName, solutionUrl) {
+window.showSolutionLoginModal = function (paperName, solutionUrl) {
   const existing = document.getElementById('solutionAuthModal');
   if (existing) existing.remove();
 
   if (solutionUrl) {
     try {
       sessionStorage.setItem('pendingSolutionUrl', solutionUrl);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const currentRedirect = encodeURIComponent(window.location.pathname + window.location.search);
@@ -926,7 +919,7 @@ window.showSolutionLoginModal = function(paperName, solutionUrl) {
   document.body.appendChild(modal);
 };
 
-window.handleViewSolutionEmpty = function(paperName) {
+window.handleViewSolutionEmpty = function (paperName) {
   const existing = document.getElementById('solutionNoticeModal');
   if (existing) existing.remove();
 
@@ -1585,11 +1578,11 @@ async function loadNoticeBanner() {
         const banner = document.getElementById('notice-banner');
         const textEl = document.getElementById('notice-banner-text');
         const linkEl = document.getElementById('notice-banner-link');
-        
+
         if (!banner || !textEl || !linkEl) return;
-        
+
         textEl.textContent = data.text;
-        
+
         if (data.link && data.link.trim() !== '') {
           linkEl.href = data.link;
           linkEl.setAttribute('target', '_blank');
@@ -1607,7 +1600,7 @@ async function loadNoticeBanner() {
         } else {
           linkEl.style.display = 'none';
         }
-        
+
         banner.style.display = 'block';
       }
     }
