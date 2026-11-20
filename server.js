@@ -311,6 +311,7 @@ app.get('/', ensureDbConnected, async (req, res) => {
     const directoryHtml = await generateSeoDirectory();
     html = html.replace('<div id="seo-links-directory"></div>', directoryHtml);
     html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
+    html = html.replace(/https:\/\/sppuvault\.com/g, base);
     res.type('html').send(html);
   } catch (err) {
     res.type('html').send(getStaticFile('index.html'));
@@ -696,6 +697,7 @@ app.get('/sppu-pyq-drive-2024-pattern', ensureDbConnected, async (req, res) => {
     const directoryHtml = await generateSeoDirectory();
     html = html.replace('<div id="seo-links-directory"></div>', directoryHtml);
     html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
+    html = html.replace(/https:\/\/sppuvault\.com/g, base);
     res.type('html').send(html);
   } catch (err) {
     res.type('html').send(getStaticFile('sppu-pyq-drive-2024-pattern.html'));
@@ -855,6 +857,7 @@ app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) =>
 
     let html = getStaticFile('index.html');
     html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
+    html = html.replace(/https:\/\/sppuvault\.com/g, base);
 
     // Replace Meta Tags dynamically
     html = html.replace(/<title>[^<]+<\/title>/g, `<title>${title}</title>`);
@@ -993,6 +996,7 @@ app.get('*', ensureDbConnected, async (req, res) => {
       
       let html = getStaticFile('index.html');
       html = html.replace(/https:\/\/sppupyq\.vercel\.app/g, base);
+    html = html.replace(/https:\/\/sppuvault\.com/g, base);
       
       let title = '';
       let description = '';
