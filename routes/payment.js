@@ -123,7 +123,7 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
 
     if (expectedSignature === razorpay_signature) {
       // Signature is valid
-      const order = await Order.findOne({ orderId: razorpay_order_id }).populate('items.product');
+      const order = await Order.findOne({ orderId: razorpay_order_id });
       if (!order) return res.status(404).json({ error: 'Order not found' });
 
       order.paymentId = razorpay_payment_id;
@@ -131,24 +131,30 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
       await order.save();
 
       // Create a Purchase record for each item in the order
-      for (const item of order.items) {
-        if (item.product) {
-          const purchase = new Purchase({
+      const items = Array.isArray(order.items) ? order.items : [];
+      for (const item of items) {
+        const prodId = item.product?._id || item.product;
+        if (prodId) {
+          const purchase = await Purchase.create({
             user: req.user._id,
-            product: item.product._id, // Use _id since it's populated
-            orderId: order.id,
-            pricePaid: order.amount
+            product: prodId,
+            orderId: order._id || order.id,
+            pricePaid: order.amount || 0
           });
-          await purchase.save();
           
           // Send email receipt asynchronously
-          sendPurchaseEmail(req.user.email, req.user.username, item.product.title, order.amount, purchase._id).catch(console.error);
+          Product.findById(prodId).then(p => {
+            if (p) {
+              sendPurchaseEmail(req.user.email, req.user.username, p.title, order.amount, purchase._id).catch(console.error);
+            }
+          }).catch(console.error);
         }
       }
 
-      res.json({ success: true, message: 'Payment verified successfully' });
+      return res.json({ success: true, message: 'Payment verified successfully' });
     } else {
-      res.status(400).json({ error: 'Invalid payment signature' });
+      console.warn('[Verify Payment] Signature mismatch:', { expectedSignature, razorpay_signature });
+      return res.status(400).json({ error: 'Invalid payment signature' });
     }
   } catch (error) {
     console.error('Error verifying payment:', error);
@@ -159,9 +165,20 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
 // GET /api/payment/my-purchases
 router.get('/my-purchases', requireAuth, async (req, res) => {
   try {
-    const purchases = await Purchase.find({ user: req.user._id })
-      .populate('product')
-      .sort({ purchasedAt: -1 });
+    const rawPurchases = await Purchase.find({ user: req.user._id }).sort({ createdAt: -1, purchasedAt: -1 });
+    const productIds = rawPurchases.map(p => p.product).filter(Boolean);
+    const products = await Product.find({ _id: { $in: productIds } });
+    const productMap = new Map();
+    products.forEach(p => productMap.set(String(p._id), p));
+
+    const purchases = rawPurchases.map(p => {
+      const prod = productMap.get(String(p.product)) || null;
+      return {
+        ...p,
+        product: prod,
+        purchasedAt: p.purchasedAt || p.createdAt || new Date()
+      };
+    });
     res.json(purchases);
   } catch (error) {
     console.error('Error fetching purchases:', error);
@@ -170,34 +187,36 @@ router.get('/my-purchases', requireAuth, async (req, res) => {
 });
 
 // GET /api/payment/stream/:productId
-// Securely streams the PDF if the user has bought it
+// Securely streams or redirects to the PDF if the user has bought it
 router.get('/stream/:productId', requireAuth, async (req, res) => {
   try {
-    const purchase = await Purchase.findOne({ user: req.user._id, product: req.params.productId }).populate('product');
-    if (!purchase || !purchase.product) {
+    const { toObjectId } = require('../utils/db');
+    const targetId = toObjectId(req.params.productId);
+    const purchase = await Purchase.findOne({
+      user: req.user._id,
+      $or: [{ product: targetId }, { product: req.params.productId }]
+    });
+    if (!purchase) {
       return res.status(403).json({ error: 'Unauthorized. You have not purchased this item.' });
     }
 
-    const pdfUrl = purchase.product.pdfUrl;
-    if (!pdfUrl) {
+    const product = await Product.findById(req.params.productId) || await Product.findOne({ slug: req.params.productId });
+    if (!product || !product.pdfUrl) {
       return res.status(404).json({ error: 'PDF not found' });
     }
 
-    // If it's a Google Drive link, redirect instead of streaming
-    // (Google Drive links return HTML viewer pages or require complex redirect handling)
+    const pdfUrl = product.pdfUrl;
     if (pdfUrl.includes('drive.google.com')) {
       return res.redirect(pdfUrl);
     }
 
-    // Secure direct redirect for authenticated buyer (Zero Vercel serverless egress/CPU load)
     let downloadUrl = pdfUrl;
     if (pdfUrl.includes('/upload/') && !pdfUrl.includes('/fl_attachment')) {
-      const safeTitle = (purchase.product.title || 'premium_material').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeTitle = (product.title || 'premium_material').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
       downloadUrl = pdfUrl.replace('/upload/', `/upload/fl_attachment:${encodeURIComponent(safeTitle)}/`);
     }
 
     return res.redirect(302, downloadUrl);
-      
   } catch (error) {
     console.error('Error streaming PDF:', error);
     res.status(500).json({ error: 'Failed to load PDF' });
