@@ -77,6 +77,8 @@ const sendPurchaseEmail = async (studentEmail, studentName, productTitle, amount
   const isFree = amountPaid === 0;
   const priceDisplay = isFree ? 'Free' : `₹${amountPaid}`;
   const subject = isFree ? `Your Free Material: ${productTitle}` : `Payment Receipt: ${productTitle}`;
+  const appUrl = (process.env.APP_URL || 'https://sppupyq.live').replace(/\/$/, '');
+  const purchasesUrl = `${appUrl}/my-purchases.html`;
 
   const html = `
   <!DOCTYPE html>
@@ -112,7 +114,7 @@ const sendPurchaseEmail = async (studentEmail, studentName, productTitle, amount
           <div class="details-row"><span class="label">Order ID</span><span class="value" style="font-family:monospace;">${orderId || 'FREE_ACCESS'}</span></div>
         </div>
         <div class="btn-container">
-          <a href="https://sppuvault.com/my-purchases.html" class="btn">View in My Purchases</a>
+          <a href="${purchasesUrl}" class="btn">View in My Purchases</a>
         </div>
       </div>
       <div class="footer">

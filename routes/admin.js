@@ -676,7 +676,7 @@ router.post('/approve-premium/:id', async (req, res) => {
                 <p style="color: #94a3b8; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
                   Your request for <b>Premium Access</b> has been verified and approved. You now have unlimited access to all exclusive PYQs, detailed notes, and premium features.
                 </p>
-                <a href="${process.env.APP_URL || 'https://sppuvault.com'}" style="display: inline-block; background: #6366f1; color: white; padding: 16px 32px; border-radius: 12px; font-weight: 600; text-decoration: none; transition: all 0.2s;">
+                <a href="${process.env.APP_URL || 'https://sppupyq.live'}" style="display: inline-block; background: #6366f1; color: white; padding: 16px 32px; border-radius: 12px; font-weight: 600; text-decoration: none; transition: all 0.2s;">
                   Start Learning Now
                 </a>
                 <div style="margin-top: 40px; padding-top: 25px; border-top: 1px solid #334155;">
@@ -730,7 +730,7 @@ router.post('/reject-premium/:id', async (req, res) => {
                   </ul>
                   Please ensure your proof of payment is clear and try submitting the request again.
                 </p>
-                <a href="${process.env.APP_URL || 'https://sppuvault.com'}" style="display: inline-block; border: 1px solid #475569; color: white; padding: 14px 28px; border-radius: 12px; font-weight: 600; text-decoration: none;">
+                <a href="${process.env.APP_URL || 'https://sppupyq.live'}" style="display: inline-block; border: 1px solid #475569; color: white; padding: 14px 28px; border-radius: 12px; font-weight: 600; text-decoration: none;">
                   Re-submit Request
                 </a>
                 <div style="margin-top: 40px; padding-top: 25px; border-top: 1px solid #334155;">
