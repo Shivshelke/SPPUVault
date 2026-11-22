@@ -6,12 +6,12 @@ const Product = require('../models/Product');
 const Purchase = require('../models/Purchase');
 const Order = require('../models/Order');
 
-// Initialize Razorpay
-// Using dummy keys if env variables are not present yet
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy_key',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || 'dummy_secret'
-});
+function getRazorpay() {
+  return new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy_key',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || 'dummy_secret'
+  });
+}
 
 // GET /api/marketplace/products
 router.get('/products', async (req, res) => {
@@ -81,7 +81,7 @@ router.post('/create-order', async (req, res) => {
       receipt: `receipt_${Date.now()}`
     };
 
-    const order = await razorpay.orders.create(options);
+    const order = await getRazorpay().orders.create(options);
 
     // Save preliminary order
     const newOrder = await Order.create({
