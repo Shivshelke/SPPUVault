@@ -388,8 +388,8 @@ async function loadSolutionTargetPapers() {
   if (!selPaper) return;
   selPaper.innerHTML = '<option value="">— Loading papers… —</option>';
 
-  const subjectVal = subjectEl && subjectEl.value === '__custom__' 
-    ? (customSubEl ? customSubEl.value.trim() : '') 
+  const subjectVal = subjectEl && subjectEl.value === '__custom__'
+    ? (customSubEl ? customSubEl.value.trim() : '')
     : (subjectEl ? subjectEl.value : '');
 
   if (!year || !branch || !subjectVal) {
@@ -630,7 +630,7 @@ async function doUpload() {
     const patternYear = patternVal.split(' ')[0];
     fd.append('pattern', patternYear);
   }
-  
+
   if (currentUploadMethod === 'file') {
     fd.append('pdf', file);
   } else {
@@ -706,36 +706,45 @@ async function loadRecentFiles() {
 // ── Manage files panel ────────────────────────────────────────────────────────
 window.currentFileTab = 'free';
 
-window.switchFileTab = function(tab) {
+window.switchFileTab = function (tab) {
   window.currentFileTab = tab;
   const freeBtn = document.getElementById('subTabFree');
+  const pinnedBtn = document.getElementById('subTabPinned');
   const premiumBtn = document.getElementById('subTabPremium');
   const freeList = document.getElementById('adminFileList');
   const premiumList = document.getElementById('adminPremiumFileList');
 
+  const setInactive = (btn) => {
+    if (!btn) return;
+    btn.style.color = 'var(--text-secondary)';
+    btn.style.borderBottom = '2px solid transparent';
+    btn.style.fontWeight = '500';
+  };
+  const setActive = (btn) => {
+    if (!btn) return;
+    btn.style.color = 'var(--accent)';
+    btn.style.borderBottom = '2px solid var(--accent)';
+    btn.style.fontWeight = '600';
+  };
+
+  setInactive(freeBtn);
+  setInactive(pinnedBtn);
+  setInactive(premiumBtn);
+
   if (tab === 'free') {
-    freeBtn.style.color = 'var(--accent)';
-    freeBtn.style.borderBottom = '2px solid var(--accent)';
-    freeBtn.style.fontWeight = '600';
-    premiumBtn.style.color = 'var(--text-secondary)';
-    premiumBtn.style.borderBottom = '2px solid transparent';
-    premiumBtn.style.fontWeight = '500';
-    
-    freeList.style.display = 'block';
-    premiumList.style.display = 'none';
-    
+    setActive(freeBtn);
+    if (freeList) freeList.style.display = 'block';
+    if (premiumList) premiumList.style.display = 'none';
+    loadAdminFiles();
+  } else if (tab === 'pinned') {
+    setActive(pinnedBtn);
+    if (freeList) freeList.style.display = 'block';
+    if (premiumList) premiumList.style.display = 'none';
     loadAdminFiles();
   } else {
-    premiumBtn.style.color = 'var(--accent)';
-    premiumBtn.style.borderBottom = '2px solid var(--accent)';
-    premiumBtn.style.fontWeight = '600';
-    freeBtn.style.color = 'var(--text-secondary)';
-    freeBtn.style.borderBottom = '2px solid transparent';
-    freeBtn.style.fontWeight = '500';
-    
-    freeList.style.display = 'none';
-    premiumList.style.display = 'block';
-    
+    setActive(premiumBtn);
+    if (freeList) freeList.style.display = 'none';
+    if (premiumList) premiumList.style.display = 'block';
     window.loadPremiumAdminFilesForTab();
   }
 };
@@ -814,15 +823,41 @@ async function loadAdminFiles() {
   params.append('_t', Date.now());
 
   const res = await fetch(`/admin/files?${params}`);
-  const files = await res.json();
+  const allFiles = await res.json();
   const el = document.getElementById('adminFileList');
+  if (!el) return;
+
+  // Always calculate and update pinned count badge
+  const totalPinned = Array.isArray(allFiles) ? allFiles.filter(f => Boolean(f.isPinned)).length : 0;
+  const pinnedBadge = document.getElementById('pinnedBadgeCount');
+  if (pinnedBadge) {
+    pinnedBadge.textContent = totalPinned;
+    pinnedBadge.style.display = totalPinned > 0 ? 'inline-flex' : 'none';
+  }
+
+  // Filter depending on current active tab
+  let files = Array.isArray(allFiles) ? allFiles : [];
+  if (window.currentFileTab === 'pinned') {
+    files = files.filter(f => Boolean(f.isPinned));
+  } else if (window.currentFileTab === 'free') {
+    files = files.filter(f => !f.isPinned);
+  }
 
   if (!files.length) {
-    el.innerHTML = `
-      <div class="empty-state">
-        <span class="empty-icon">📭</span>
-        No papers found. Upload some!
-      </div>`;
+    if (window.currentFileTab === 'pinned') {
+      el.innerHTML = `
+        <div class="empty-state">
+          <span class="empty-icon">📌</span>
+          No pinned files found.<br>
+          <span style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px; display:inline-block;">You can pin important papers from the <strong>Free Files</strong> tab by clicking the <strong>📌 Pin</strong> button.</span>
+        </div>`;
+    } else {
+      el.innerHTML = `
+        <div class="empty-state">
+          <span class="empty-icon">📭</span>
+          No papers found. Upload some!
+        </div>`;
+    }
     return;
   }
 
@@ -843,12 +878,12 @@ async function loadAdminFiles() {
         </thead>
         <tbody>
           ${files.map(f => {
-            const hasSol = Boolean(f.solutionUrl);
-            const solBadge = hasSol 
-              ? `<a href="${escHtml(f.solutionUrl)}" target="_blank" rel="noopener noreferrer" class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); font-size:0.75rem; text-decoration:none; display:inline-flex; align-items:center; gap:3px;" title="${escHtml(f.solutionOriginalName || 'Solution')}">✓ Solved</a>` 
-              : `<span style="color:var(--muted); font-size:0.75rem;">None</span>`;
-            
-            return `
+    const hasSol = Boolean(f.solutionUrl);
+    const solBadge = hasSol
+      ? `<a href="${escHtml(f.solutionUrl)}" target="_blank" rel="noopener noreferrer" class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); font-size:0.75rem; text-decoration:none; display:inline-flex; align-items:center; gap:3px;" title="${escHtml(f.solutionOriginalName || 'Solution')}">✓ Solved</a>`
+      : `<span style="color:var(--muted); font-size:0.75rem;">None</span>`;
+
+    return `
             <tr ${f.isPinned ? 'style="background:rgba(245,158,11,0.05);"' : ''}>
               <td>
                 ${f.isPinned ? '<span class="badge" style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3); font-size:0.68rem; margin-right:5px; font-weight:600;">📌 PINNED</span>' : ''}
@@ -968,7 +1003,7 @@ function openGateModal(id, name, type, waUrl, tgUrl) {
   document.getElementById('gateWaUrl').value = waUrl || '';
   document.getElementById('gateTgUrl').value = tgUrl || '';
   document.getElementById('gateAlert').style.display = 'none';
-  
+
   toggleGateFields();
   document.getElementById('gateModal').style.display = 'flex';
 }
@@ -988,7 +1023,7 @@ async function saveGateSettings() {
   if (!gateTargetId) return;
   const btn = document.getElementById('saveGateBtn');
   const alertEl = document.getElementById('gateAlert');
-  
+
   const type = document.getElementById('gateType').value;
   const whatsappUrl = document.getElementById('gateWaUrl').value.trim();
   const telegramUrl = document.getElementById('gateTgUrl').value.trim();
@@ -1100,14 +1135,14 @@ async function loadAdminReviews() {
     el.innerHTML = `
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.25rem;">
         ${list.map(r => {
-          const isPending = r.status !== 'approved';
-          const starsStr = '★'.repeat(r.rating || 5) + '☆'.repeat(Math.max(0, 5 - (r.rating || 5)));
-          const badgeText = isPending ? '⏳ Pending Approval' : '✅ Approved / Live';
-          const badgeStyle = isPending
-            ? 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);'
-            : 'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);';
+      const isPending = r.status !== 'approved';
+      const starsStr = '★'.repeat(r.rating || 5) + '☆'.repeat(Math.max(0, 5 - (r.rating || 5)));
+      const badgeText = isPending ? '⏳ Pending Approval' : '✅ Approved / Live';
+      const badgeStyle = isPending
+        ? 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);'
+        : 'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);';
 
-          return `
+      return `
             <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md, 12px); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
               <div>
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
@@ -1152,7 +1187,7 @@ async function loadAdminReviews() {
               </div>
             </div>
           `;
-        }).join('')}
+    }).join('')}
       </div>
     `;
   } catch (e) {
@@ -1221,10 +1256,10 @@ async function loadCatStructure() {
             <div style="margin-bottom:.4rem;font-size:.78rem;color:var(--muted)">Subjects by Branch:</div>
             <div style="display:flex; flex-direction:column; gap:0.5rem; padding-left:0.5rem; border-left: 2px solid var(--border);">
               ${entries.map(([branchName, subjs]) => {
-                if (!subjs) return '';
-                if (Array.isArray(subjs)) {
-                  if (!subjs.length) return '';
-                  return `
+            if (!subjs) return '';
+            if (Array.isArray(subjs)) {
+              if (!subjs.length) return '';
+              return `
                     <div>
                       <div style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:0.2rem; font-weight:600;">${escHtml(branchName)}:</div>
                       <div class="cat-tag-list">
@@ -1232,17 +1267,17 @@ async function loadCatStructure() {
                       </div>
                     </div>
                   `;
-                } else {
-                  const patternEntries = Object.entries(subjs);
-                  const hasPatternSubjects = patternEntries.some(([_, sList]) => sList && sList.length > 0);
-                  if (!hasPatternSubjects) return '';
-                  return `
+            } else {
+              const patternEntries = Object.entries(subjs);
+              const hasPatternSubjects = patternEntries.some(([_, sList]) => sList && sList.length > 0);
+              if (!hasPatternSubjects) return '';
+              return `
                     <div>
                       <div style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:0.2rem; font-weight:600;">${escHtml(branchName)}:</div>
                       <div style="display:flex; flex-direction:column; gap:0.3rem; padding-left:0.5rem; margin-top:0.2rem;">
                         ${patternEntries.map(([patternName, sList]) => {
-                          if (!sList || !sList.length) return '';
-                          return `
+                if (!sList || !sList.length) return '';
+                return `
                             <div>
                               <div style="font-size:0.7rem; color:var(--muted); margin-bottom:0.1rem; font-style:italic;">${escHtml(patternName)}:</div>
                               <div class="cat-tag-list">
@@ -1250,12 +1285,12 @@ async function loadCatStructure() {
                               </div>
                             </div>
                           `;
-                        }).join('')}
+              }).join('')}
                       </div>
                     </div>
                   `;
-                }
-              }).join('')}
+            }
+          }).join('')}
             </div>
           `;
         }
@@ -1306,7 +1341,7 @@ async function addSubject() {
   const branch = document.getElementById('catBranchSelect').value;
   const pattern = document.getElementById('catPatternSelect').value;
   const subject = document.getElementById('catSubject').value.trim();
-  
+
   if (!year) { showCatAlert('Select a year.', 'error'); return; }
   if (year !== 'first' && !branch) { showCatAlert('Select a branch.', 'error'); return; }
   if (year !== 'first' && !pattern) { showCatAlert('Select a pattern.', 'error'); return; }
@@ -1542,7 +1577,7 @@ window.doPremiumUpload = async function () {
   if (originalPrice) fd.append('originalPrice', originalPrice);
   if (desc) fd.append('description', desc);
   if (thumbnail) fd.append('thumbnailUrl', thumbnail);
-  
+
   if (currentPrmUploadMethod === 'file') {
     fd.append('pdf', file);
   } else {
@@ -1844,21 +1879,21 @@ window.togglePinProduct = async function (id) {
 window.loadEarningsAnalytics = async function () {
   const el = document.getElementById('earningsList');
   if (!el) return;
-  
+
   try {
     const res = await fetch('/admin/analytics');
     const data = await res.json();
-    
+
     if (data.success) {
       document.getElementById('totalEarningsVal').textContent = `₹${data.totalEarnings || 0}`;
       document.getElementById('totalSalesVal').textContent = data.totalSales || 0;
-      
+
       const purchases = data.recentPurchases;
       if (!purchases || !purchases.length) {
         el.innerHTML = '<div class="empty-state small">No sales yet. Keep going!</div>';
         return;
       }
-      
+
       el.innerHTML = `
       <div class="file-table-wrap">
         <table class="file-table">
@@ -1872,10 +1907,10 @@ window.loadEarningsAnalytics = async function () {
           </thead>
           <tbody>
             ${purchases.map(p => {
-              const date = new Date(p.purchasedAt).toLocaleDateString();
-              const studentName = p.user ? escHtml(p.user.username) : 'Unknown';
-              const productTitle = p.product ? escHtml(p.product.title) : 'Unknown Product';
-              return `
+        const date = new Date(p.purchasedAt).toLocaleDateString();
+        const studentName = p.user ? escHtml(p.user.username) : 'Unknown';
+        const productTitle = p.product ? escHtml(p.product.title) : 'Unknown Product';
+        return `
                 <tr>
                   <td><span class="badge" style="background:var(--surface2); color:var(--text);">${date}</span></td>
                   <td>${studentName}</td>
@@ -1883,7 +1918,7 @@ window.loadEarningsAnalytics = async function () {
                   <td style="color:#10b981; font-weight:600;">₹${p.pricePaid}</td>
                 </tr>
               `;
-            }).join('')}
+      }).join('')}
           </tbody>
         </table>
       </div>`;
@@ -1894,7 +1929,7 @@ window.loadEarningsAnalytics = async function () {
   }
 };
 
-window.onPrmYearChange = function() {
+window.onPrmYearChange = function () {
   const year = document.getElementById('prmYear').value;
   const branch = document.getElementById('prmBranch');
   const subj = document.getElementById('prmSubjectDropdown');
@@ -1924,11 +1959,11 @@ window.onPrmYearChange = function() {
   branch.disabled = false;
 };
 
-window.onPrmPatternChange = function() {
+window.onPrmPatternChange = function () {
   window.onPrmBranchChange();
 };
 
-window.onPrmBranchChange = function() {
+window.onPrmBranchChange = function () {
   const year = document.getElementById('prmYear').value;
   const branchVal = document.getElementById('prmBranch').value;
   const patternVal = document.getElementById('prmPattern') ? document.getElementById('prmPattern').value : '2024 Pattern';
@@ -1966,7 +2001,7 @@ window.onPrmBranchChange = function() {
   subj.onchange = function () {
     const customGroup = document.getElementById('prmCustomSubjectGroup');
     if (customGroup) customGroup.style.display = this.value === '__custom__' ? 'block' : 'none';
-    
+
     // Auto-fill Product Title
     const titleInput = document.getElementById('prmSubject');
     if (titleInput && this.value && this.value !== '__custom__') {
@@ -2013,7 +2048,7 @@ async function saveBannerConfig() {
       },
       body: JSON.stringify({ text, link, isActive })
     });
-    
+
     const data = await res.json();
     if (res.ok && data.success) {
       alertBox.textContent = 'Banner settings saved successfully!';
@@ -2316,7 +2351,7 @@ async function doRemoveSolution() {
 window.doRemoveSolution = doRemoveSolution;
 
 // ── EDIT PREMIUM FILE MODAL HANDLERS ──
-window.openEditPremiumModal = async function(id) {
+window.openEditPremiumModal = async function (id) {
   const modal = document.getElementById('editPremiumModal');
   const alertEl = document.getElementById('editPrmAlert');
   if (alertEl) alertEl.style.display = 'none';
@@ -2347,12 +2382,12 @@ window.openEditPremiumModal = async function(id) {
   }
 };
 
-window.closeEditPremiumModal = function() {
+window.closeEditPremiumModal = function () {
   const modal = document.getElementById('editPremiumModal');
   if (modal) modal.style.display = 'none';
 };
 
-window.saveEditPremium = async function() {
+window.saveEditPremium = async function () {
   const id = document.getElementById('editPrmId').value;
   const title = document.getElementById('editPrmTitle').value.trim();
   const price = document.getElementById('editPrmPrice').value;
