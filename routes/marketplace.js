@@ -6,11 +6,29 @@ const Product = require('../models/Product');
 const Purchase = require('../models/Purchase');
 const Order = require('../models/Order');
 
-function getRazorpay() {
-  return new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy_key',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || 'dummy_secret'
+async function createRazorpayOrder(options) {
+  const key_id = process.env.RAZORPAY_KEY_ID;
+  const key_secret = process.env.RAZORPAY_KEY_SECRET;
+  if (!key_id || !key_secret || key_id === 'rzp_test_placeholder') {
+    throw new Error('Razorpay keys not configured. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
+  }
+
+  const auth = Buffer.from(`${key_id}:${key_secret}`).toString('base64');
+  const res = await fetch('https://api.razorpay.com/v1/orders', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(options)
   });
+
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = data?.error?.description || data?.error?.message || 'Failed to create Razorpay order';
+    throw new Error(msg);
+  }
+  return data;
 }
 
 // GET /api/marketplace/products
@@ -81,7 +99,7 @@ router.post('/create-order', async (req, res) => {
       receipt: `receipt_${Date.now()}`
     };
 
-    const order = await getRazorpay().orders.create(options);
+    const order = await createRazorpayOrder(options);
 
     // Save preliminary order
     const newOrder = await Order.create({

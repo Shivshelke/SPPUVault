@@ -9,14 +9,30 @@ const Purchase = require('../models/Purchase');
 const { requireAuth } = require('../middleware/auth');
 const https = require('https');
 
-// Get Razorpay instance
-function getRazorpay() {
+// Native Fetch Razorpay Order Creator (100% Cloudflare Workers & Node Compatible)
+async function createRazorpayOrder(options) {
   const key_id = process.env.RAZORPAY_KEY_ID;
   const key_secret = process.env.RAZORPAY_KEY_SECRET;
   if (!key_id || !key_secret || key_id === 'rzp_test_placeholder') {
-    return null;
+    throw new Error('Razorpay keys not configured. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Environment Variables.');
   }
-  return new Razorpay({ key_id, key_secret });
+
+  const auth = Buffer.from(`${key_id}:${key_secret}`).toString('base64');
+  const res = await fetch('https://api.razorpay.com/v1/orders', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(options)
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = data?.error?.description || data?.error?.message || 'Failed to create Razorpay order';
+    throw new Error(msg);
+  }
+  return data;
 }
 
 // POST /api/payment/create-order
@@ -58,13 +74,6 @@ router.post('/create-order', requireAuth, async (req, res) => {
       });
     }
 
-    const rzp = getRazorpay();
-    if (!rzp) {
-      return res.status(500).json({ 
-        error: 'Razorpay keys not configured on Vercel. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Vercel Environment Variables and redeploy.' 
-      });
-    }
-
     // Razorpay amount is in paise (multiply by 100)
     const options = {
       amount: Math.round(product.price * 100),
@@ -72,17 +81,17 @@ router.post('/create-order', requireAuth, async (req, res) => {
       receipt: `rcpt_${Date.now()}_${String(req.user._id).slice(-8)}`
     };
 
-    const order = await rzp.orders.create(options);
+    const order = await createRazorpayOrder(options);
 
     // Save pending order to our DB
-    const newOrder = new Order({
+    const newOrder = await Order.create({
       user: req.user._id,
       items: [{ product: product._id }],
       amount: product.price,
+      paymentGateway: 'razorpay',
       orderId: order.id,
       status: 'pending'
     });
-    await newOrder.save();
 
     res.json({
       success: true,
@@ -95,7 +104,7 @@ router.post('/create-order', requireAuth, async (req, res) => {
     console.error('Error creating order:', error);
     let detail = error?.error?.description || error?.message || 'Failed to create order';
     if (detail === 'Authentication failed') {
-      detail = 'Razorpay Authentication Failed: The API Key ID or Key Secret is invalid or expired. Please update RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your Vercel Environment Variables.';
+      detail = 'Razorpay Authentication Failed: The API Key ID or Key Secret is invalid or expired.';
     }
     res.status(500).json({ error: detail });
   }
