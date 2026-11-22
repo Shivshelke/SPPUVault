@@ -1,47 +1,76 @@
 /**
- * utils/email.js — Resend REST API over HTTPS
- * Replaces Nodemailer SMTP with 100% Cloudflare Workers compatible HTTPS fetch calls.
+ * utils/email.js — Gmail SMTP & Resend API support
  */
+const nodemailer = require('nodemailer');
+
+let transporter = null;
+function getTransporter() {
+  const user = process.env.EMAIL_USER;
+  const pass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
+  if (!user || !pass) return null;
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass }
+    });
+  }
+  return transporter;
+}
 
 async function sendEmail({ to, subject, html, text }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn('[Resend] Warning: RESEND_API_KEY is not set. Skipping email send.');
-    return { success: false, error: 'RESEND_API_KEY not configured' };
-  }
-
-  const fromAddress = process.env.RESEND_FROM || 'SPPUVault <notifications@sppuvault.com>';
-
-  try {
-    const payload = {
-      from: fromAddress,
-      to: Array.isArray(to) ? to : [to],
-      subject,
-      html: html || (text ? `<p>${text.replace(/\n/g, '<br>')}</p>` : '')
-    };
-    if (text) payload.text = text;
-
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      console.error('[Resend Error]', data);
-      return { success: false, error: data };
+  // 1. Try Gmail SMTP (Nodemailer)
+  const mailer = getTransporter();
+  if (mailer) {
+    try {
+      const fromUser = process.env.EMAIL_USER || 'vexn.co@gmail.com';
+      const info = await mailer.sendMail({
+        from: `SPPUVault <${fromUser}>`,
+        to: Array.isArray(to) ? to.join(', ') : to,
+        subject,
+        html: html || (text ? `<p>${text.replace(/\n/g, '<br>')}</p>` : ''),
+        text
+      });
+      console.log('[Gmail SMTP Success] Email sent:', info.messageId);
+      return { success: true, id: info.messageId };
+    } catch (err) {
+      console.error('[Gmail SMTP Warning]:', err.message);
     }
-
-    console.log('[Resend Success] Email sent ID:', data.id);
-    return { success: true, id: data.id };
-  } catch (err) {
-    console.error('[Resend Network Error]', err.message);
-    return { success: false, error: err.message };
   }
+
+  // 2. Fallback to Resend REST API if configured
+  const apiKey = process.env.RESEND_API_KEY;
+  if (apiKey) {
+    const fromAddress = process.env.RESEND_FROM || 'SPPUVault <notifications@sppuvault.com>';
+    try {
+      const payload = {
+        from: fromAddress,
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        html: html || (text ? `<p>${text.replace(/\n/g, '<br>')}</p>` : '')
+      };
+      if (text) payload.text = text;
+
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        console.log('[Resend Success] Email sent ID:', data.id);
+        return { success: true, id: data.id };
+      }
+    } catch (err) {
+      console.error('[Resend Network Error]', err.message);
+    }
+  }
+
+  console.warn('[Email] Warning: Email could not be sent. Please check EMAIL_USER/EMAIL_PASS or RESEND_API_KEY.');
+  return { success: false, error: 'Email service unavailable' };
 }
 
 const sendPurchaseEmail = async (studentEmail, studentName, productTitle, amountPaid, orderId) => {
