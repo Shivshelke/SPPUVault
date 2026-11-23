@@ -2467,6 +2467,8 @@ window.saveEditPremium = async function () {
 };
 
 // ── Coupon Management ──────────────────────────────────────────────────────────
+let adminCouponsCache = [];
+
 window.onCouponTypeChange = function () {
   const type = document.getElementById('cpType').value;
   const label = document.getElementById('cpValueLabel');
@@ -2478,6 +2480,12 @@ window.onCouponTypeChange = function () {
     label.innerHTML = 'Discount Percentage (%) <span class="req">*</span>';
     input.placeholder = 'e.g. 50';
   }
+};
+
+window.onEditCouponTypeChange = function () {
+  const type = document.getElementById('editCpType').value;
+  const label = document.getElementById('editCpValueLabel');
+  label.textContent = type === 'flat' ? 'Discount Amount (₹) *' : 'Discount Percentage (%) *';
 };
 
 window.loadCouponsAdmin = async function () {
@@ -2495,6 +2503,7 @@ window.loadCouponsAdmin = async function () {
     }
 
     const coupons = data.coupons || [];
+    adminCouponsCache = coupons;
     if (!coupons.length) {
       container.innerHTML = '<div class="empty-state small">No coupons created yet. Create your first coupon above!</div>';
       return;
@@ -2528,6 +2537,9 @@ window.loadCouponsAdmin = async function () {
                 <td style="padding: 12px 8px; font-size: 0.9rem; color: var(--text-secondary);">${usesText}</td>
                 <td style="padding: 12px 8px;">${statusBadge}</td>
                 <td style="padding: 12px 8px; text-align: right;">
+                  <button class="btn-ghost small" onclick="window.openEditCouponModal('${c._id}')" style="margin-right: 4px;" title="Edit Coupon">
+                    ✏️ Edit
+                  </button>
                   <button class="btn-ghost small" onclick="window.toggleCouponAdmin('${c._id}')" style="margin-right: 4px;" title="Toggle Active">
                     ${c.isActive ? 'Disable' : 'Enable'}
                   </button>
@@ -2544,6 +2556,96 @@ window.loadCouponsAdmin = async function () {
   } catch (err) {
     console.error('Error loading coupons:', err);
     container.innerHTML = '<div class="empty-state small" style="color:#ef4444">Network error loading coupons</div>';
+  }
+};
+
+window.openEditCouponModal = function (id) {
+  const coupon = (adminCouponsCache || []).find(c => String(c._id) === String(id));
+  if (!coupon) return alert('Coupon details not found. Please refresh the page.');
+
+  document.getElementById('editCpId').value = coupon._id;
+  document.getElementById('editCpCode').value = coupon.code || '';
+  document.getElementById('editCpType').value = coupon.discountType || 'percentage';
+  document.getElementById('editCpValue').value = coupon.discountValue || '';
+  document.getElementById('editCpMinOrder').value = coupon.minOrderValue || 0;
+  document.getElementById('editCpMaxUses').value = coupon.maxUses || '';
+
+  let expVal = '';
+  if (coupon.expiresAt) {
+    try {
+      expVal = new Date(coupon.expiresAt).toISOString().split('T')[0];
+    } catch (_) { }
+  }
+  document.getElementById('editCpExpiry').value = expVal;
+  document.getElementById('editCpActive').checked = Boolean(coupon.isActive);
+
+  window.onEditCouponTypeChange();
+  const alertEl = document.getElementById('editCpAlert');
+  if (alertEl) alertEl.style.display = 'none';
+
+  document.getElementById('editCouponModal').style.display = 'flex';
+};
+
+window.closeEditCouponModal = function () {
+  const modal = document.getElementById('editCouponModal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.saveCouponEdit = async function () {
+  const id = document.getElementById('editCpId').value;
+  const code = (document.getElementById('editCpCode').value || '').trim();
+  const discountType = document.getElementById('editCpType').value;
+  const discountValue = document.getElementById('editCpValue').value;
+  const minOrderValue = document.getElementById('editCpMinOrder').value;
+  const maxUses = document.getElementById('editCpMaxUses').value;
+  const expiresAt = document.getElementById('editCpExpiry').value;
+  const isActive = document.getElementById('editCpActive').checked;
+  const alertEl = document.getElementById('editCpAlert');
+  const btn = document.getElementById('saveCouponBtn');
+
+  if (!code || !discountValue) {
+    alertEl.style.display = 'block';
+    alertEl.className = 'alert error';
+    alertEl.textContent = 'Please provide coupon code and discount value.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  alertEl.style.display = 'none';
+
+  try {
+    const res = await fetch(`/admin/coupons/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        discountType,
+        discountValue,
+        minOrderValue,
+        maxUses: maxUses ? Number(maxUses) : null,
+        expiresAt: expiresAt || null,
+        isActive
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      alertEl.style.display = 'block';
+      alertEl.className = 'alert error';
+      alertEl.textContent = data.error || 'Failed to update coupon';
+      return;
+    }
+
+    window.closeEditCouponModal();
+    await window.loadCouponsAdmin();
+  } catch (err) {
+    alertEl.style.display = 'block';
+    alertEl.className = 'alert error';
+    alertEl.textContent = 'Network error saving coupon.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Changes';
   }
 };
 

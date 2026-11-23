@@ -1002,6 +1002,65 @@ router.post('/coupons', requireAdmin, async (req, res) => {
   }
 });
 
+router.put('/coupons/:id', requireAdmin, async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    const { id } = req.params;
+    const coupon = await Coupon.findById(id);
+    if (!coupon) return res.status(404).json({ error: 'Coupon not found' });
+
+    const { code, discountType, discountValue, minOrderValue, maxDiscount, maxUses, expiresAt, isActive } = req.body;
+
+    if (code !== undefined) {
+      const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+      if (!cleanCode) return res.status(400).json({ error: 'Valid coupon code is required' });
+      
+      const existing = await Coupon.findOne({ code: cleanCode, _id: { $ne: coupon._id } });
+      if (existing) {
+        return res.status(400).json({ error: `Coupon code '${cleanCode}' is already used by another coupon` });
+      }
+      coupon.code = cleanCode;
+    }
+
+    if (discountType !== undefined) {
+      coupon.discountType = discountType === 'flat' ? 'flat' : 'percentage';
+    }
+
+    if (discountValue !== undefined) {
+      const val = Number(discountValue);
+      if (isNaN(val) || val <= 0) {
+        return res.status(400).json({ error: 'Valid discount value is required' });
+      }
+      coupon.discountValue = val;
+    }
+
+    if (minOrderValue !== undefined) {
+      coupon.minOrderValue = Number(minOrderValue) || 0;
+    }
+
+    if (maxDiscount !== undefined) {
+      coupon.maxDiscount = maxDiscount ? Number(maxDiscount) : null;
+    }
+
+    if (maxUses !== undefined) {
+      coupon.maxUses = maxUses ? Number(maxUses) : null;
+    }
+
+    if (expiresAt !== undefined) {
+      coupon.expiresAt = expiresAt ? new Date(expiresAt) : null;
+    }
+
+    if (isActive !== undefined) {
+      coupon.isActive = Boolean(isActive);
+    }
+
+    await coupon.save();
+    res.json({ success: true, coupon });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.patch('/coupons/:id/toggle', requireAdmin, async (req, res) => {
   try {
     const Coupon = require('../models/Coupon');
