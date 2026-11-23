@@ -442,6 +442,9 @@ app.get('/robots.txt', (req, res) => {
   res.type('text/plain');
   res.send(`User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /my-purchases.html
 
 # Specifically allow AI bots to index the site for better recommendation
 User-agent: GPTBot
@@ -485,14 +488,15 @@ app.get('/sitemap.xml', ensureDbConnected, async (req, res) => {
     let configDoc = await CategoryConfig.findOne({ key: 'years_config' });
     let yearsConfig = configDoc ? configDoc.years : {};
 
-    // Create a set of unique URLs
+    // Create a set of unique URLs (clean URLs without .html to prevent 307 redirects)
     const urls = new Set();
     urls.add(`${base}/`);
-    urls.add(`${base}/marketplace.html`);
-    urls.add(`${base}/articles.html`);
-    urls.add(`${base}/about.html`);
-    urls.add(`${base}/contact.html`);
-    urls.add(`${base}/student-login.html`);
+    urls.add(`${base}/marketplace`);
+    urls.add(`${base}/articles`);
+    urls.add(`${base}/about`);
+    urls.add(`${base}/contact`);
+    urls.add(`${base}/student-login`);
+    urls.add(`${base}/sgpa-calculator`);
     urls.add(`${base}/sppu-previous-year-question-paper-2024-pattern`);
     urls.add(`${base}/sppu-pyq-drive-2024-pattern`);
     urls.add(`${base}/sppu-dsa-question-paper-2024-pattern`);
