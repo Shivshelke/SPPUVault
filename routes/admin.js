@@ -30,7 +30,7 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => {
     const { year, branch, subject, title, contentType, semester } = req.body;
-    
+
     // Sanitize function to remove invalid characters for Cloudinary (spaces, &, etc.)
     const sanitize = (str) => {
       if (!str) return '';
@@ -41,7 +41,7 @@ const storage = new CloudinaryStorage({
     const sBranch = sanitize(branch);
     const sSemester = sanitize(semester);
     const sContent = sanitize(contentType);
-    
+
     // Fallback to subject if title is not present (for old upload form)
     const fileTitle = title || subject || 'document';
     const sTitle = sanitize(fileTitle);
@@ -95,15 +95,15 @@ router.post('/upload', (req, res) => {
     }
     try {
       const { year, branch, subject, customSubject, contentType, semester, isLink, linkUrl, customFileName, pattern } = req.body;
-      
+
       const finalSubject = customSubject && customSubject.trim() ? customSubject.trim() : subject;
-      
+
       if (isLink === 'true') {
         if (!linkUrl) return res.status(400).json({ error: 'Link URL required.' });
-        
+
         const urls = linkUrl.split(/[\r\n,]+/).map(u => u.trim()).filter(Boolean);
         if (!urls.length) return res.status(400).json({ error: 'At least one valid URL is required.' });
-        
+
         const promises = urls.map((url, i) => {
           let fileName = '';
           if (urls.length === 1 && customFileName && customFileName.trim()) {
@@ -111,7 +111,7 @@ router.post('/upload', (req, res) => {
           } else {
             fileName = `${finalSubject || 'document'}${urls.length > 1 ? '_' + (i + 1) : ''}.pdf`;
           }
-          
+
           const record = {
             originalName: fileName,
             storedName: `google-drive_${Date.now()}_${i}`,
@@ -129,12 +129,12 @@ router.post('/upload', (req, res) => {
           };
           return File.create(record);
         });
-        
+
         const savedRecords = await Promise.all(promises);
         return res.json({ success: true, files: savedRecords });
       } else {
         if (!req.file) return res.status(400).json({ error: 'File required.' });
-        
+
         const record = {
           originalName: (customFileName && customFileName.trim()) ? customFileName.trim() : req.file.originalname,
           storedName: req.file.filename || req.file.public_id,
@@ -150,7 +150,7 @@ router.post('/upload', (req, res) => {
           pattern: pattern || '2024',
           uploadDate: new Date()
         };
-        
+
         const saved = await File.create(record);
         return res.json({ success: true, file: saved });
       }
@@ -245,13 +245,13 @@ router.post('/product', (req, res) => {
       }
       try {
         const { year, branch, title, contentType, price, originalPrice, isLink, linkUrl, description, thumbnailUrl: customThumb } = req.body;
-        
+
         // Generate unique SEO slug
         const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
         const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
-        
+
         let pdfUrl, previewUrl, thumbnailUrl;
-        
+
         if (isLink === 'true') {
           if (!linkUrl) return res.status(400).json({ error: 'Link URL required.' });
           pdfUrl = linkUrl;
@@ -462,7 +462,7 @@ router.get('/product/:id', async (req, res) => {
 router.put('/product/:id', async (req, res) => {
   try {
     const { title, description, price, originalPrice, contentType, year, branch, thumbnailUrl, pdfUrl } = req.body;
-    
+
     const updateData = {};
     if (title !== undefined) updateData.title = title.trim();
     if (description !== undefined) updateData.description = description.trim();
@@ -573,7 +573,7 @@ router.post('/config/subject', async (req, res) => {
     try {
       const apiRouter = require('./api');
       if (typeof apiRouter.clearConfigCache === 'function') apiRouter.clearConfigCache();
-    } catch (_) {}
+    } catch (_) { }
 
     res.json({ success: true, count: subjectsArray.length });
   } catch (e) {
@@ -624,7 +624,7 @@ router.post('/config/branch', async (req, res) => {
     try {
       const apiRouter = require('./api');
       if (typeof apiRouter.clearConfigCache === 'function') apiRouter.clearConfigCache();
-    } catch (_) {}
+    } catch (_) { }
 
     res.json({ success: true });
   } catch (e) {
@@ -761,7 +761,7 @@ router.get('/students', async (req, res) => {
         if (s._id) {
           try {
             regDate = new Date(parseInt(s._id.toString().substring(0, 8), 16) * 1000);
-          } catch (e) {}
+          } catch (e) { }
         }
       }
       return { ...s, registeredAt: regDate };
@@ -795,16 +795,46 @@ router.get('/analytics', async (req, res) => {
     const earningsAgg = await Purchase.aggregate([
       { $group: { _id: null, total: { $sum: "$pricePaid" }, count: { $sum: 1 } } }
     ]);
-    
+
     const totalEarnings = earningsAgg.length > 0 ? earningsAgg[0].total : 0;
     const totalSales = earningsAgg.length > 0 ? earningsAgg[0].count : 0;
-    
+
     // Recent Purchases
-    const recentPurchases = await Purchase.find()
-      .sort({ purchasedAt: -1 })
-      .limit(50)
-      .populate('user', 'username email')
-      .populate('product', 'title price');
+    const rawPurchases = await Purchase.find()
+      .sort({ purchasedAt: -1, createdAt: -1 })
+      .limit(50);
+
+    const userIds = rawPurchases.map(p => p.user).filter(Boolean);
+    const prodIds = rawPurchases.map(p => p.product).filter(Boolean);
+
+    const users = await Student.find({ _id: { $in: userIds } });
+    const products = await Product.find({ _id: { $in: prodIds } });
+
+    const userMap = new Map();
+    users.forEach(u => userMap.set(String(u._id), u));
+
+    const prodMap = new Map();
+    products.forEach(p => prodMap.set(String(p._id), p));
+
+    const recentPurchases = rawPurchases.map(p => {
+      const u = userMap.get(String(p.user));
+      const prod = prodMap.get(String(p.product));
+      return {
+        _id: p._id,
+        pricePaid: p.pricePaid || (prod ? prod.price : 0),
+        purchasedAt: p.purchasedAt || p.createdAt || (p._id && typeof p._id.getTimestamp === 'function' ? p._id.getTimestamp() : new Date()),
+        user: u ? {
+          _id: u._id,
+          username: u.username || u.name || u.email,
+          email: u.email
+        } : { username: 'Student' },
+        product: prod ? {
+          _id: prod._id,
+          title: prod.title,
+          price: prod.price
+        } : { title: 'Study Material' }
+      };
+    });
 
     res.json({
       success: true,
@@ -847,7 +877,7 @@ router.post('/banner', requireAdmin, async (req, res) => {
     try {
       const apiRouter = require('./api');
       if (typeof apiRouter.clearBannerCache === 'function') apiRouter.clearBannerCache();
-    } catch (_) {}
+    } catch (_) { }
     res.json({ success: true, banner });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -912,7 +942,7 @@ router.post('/telegram-promo', requireAdmin, async (req, res) => {
     try {
       const apiRouter = require('./api');
       if (typeof apiRouter.clearPromoCache === 'function') apiRouter.clearPromoCache();
-    } catch (_) {}
+    } catch (_) { }
     res.json({ success: true, promo });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -1907,9 +1907,11 @@ window.loadEarningsAnalytics = async function () {
           </thead>
           <tbody>
             ${purchases.map(p => {
-        const date = new Date(p.purchasedAt).toLocaleDateString();
-        const studentName = p.user ? escHtml(p.user.username) : 'Unknown';
-        const productTitle = p.product ? escHtml(p.product.title) : 'Unknown Product';
+        const rawDate = p.purchasedAt || p.createdAt;
+        const dateObj = rawDate ? new Date(rawDate) : null;
+        const date = (dateObj && !isNaN(dateObj.getTime())) ? dateObj.toLocaleDateString() : 'Recent';
+        const studentName = p.user ? escHtml(p.user.username || p.user.name || p.user.email || 'Student') : 'Student';
+        const productTitle = p.product ? escHtml(p.product.title || 'Study Material') : 'Study Material';
         return `
                 <tr>
                   <td><span class="badge" style="background:var(--surface2); color:var(--text);">${date}</span></td>
