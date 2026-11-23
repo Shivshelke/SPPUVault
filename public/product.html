@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Product Details | SPPUVault Marketplace</title>
   <meta name="description" content="Download verified SPPU Engineering study materials, solved question papers, and handwritten topper notes on SPPUVault Marketplace.">
-  <link rel="canonical" href="https://sppupyq.live/product.html" />
+  <link rel="canonical" href="https://sppupyq.live/product" />
   
   <meta property="og:type" content="product">
   <meta property="og:title" content="SPPU Engineering Study Material | SPPUVault Marketplace">
@@ -362,6 +362,45 @@
         const p = data;
         currentProductId = p._id;
         currentPrice = p.price;
+
+        if (p.title) {
+          document.title = `${p.title} | SPPUVault Marketplace`;
+          const canonical = document.querySelector('link[rel="canonical"]');
+          if (canonical) canonical.href = window.location.href;
+          const ogTitle = document.querySelector('meta[property="og:title"]');
+          if (ogTitle) ogTitle.content = `${p.title} | SPPUVault Marketplace`;
+          const ogImg = document.querySelector('meta[property="og:image"]');
+          if (ogImg && p.thumbnailUrl) ogImg.content = p.thumbnailUrl;
+          
+          // Inject dynamic Schema.org Product structured data for Googlebot
+          const productSchema = {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": p.title,
+            "description": p.description || "Download verified SPPU Engineering study material on SPPUVault.",
+            "image": p.thumbnailUrl || "https://sppupyq.live/assets/og-image.png",
+            "category": p.contentType || "Study Material",
+            "offers": {
+              "@type": "Offer",
+              "url": window.location.href,
+              "priceCurrency": "INR",
+              "price": (p.price || 0).toString(),
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "SPPUVault"
+              }
+            }
+          };
+          let schemaEl = document.getElementById('product-schema-jsonld');
+          if (!schemaEl) {
+            schemaEl = document.createElement('script');
+            schemaEl.id = 'product-schema-jsonld';
+            schemaEl.type = 'application/ld+json';
+            document.head.appendChild(schemaEl);
+          }
+          schemaEl.textContent = JSON.stringify(productSchema);
+        }
 
         document.getElementById('pTitle').textContent = p.title;
         
