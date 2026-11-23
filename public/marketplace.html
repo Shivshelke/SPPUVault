@@ -19,15 +19,38 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    "name": "SPPUVault Study Marketplace",
-    "description": "Premium verified SPPU Engineering study materials, handwritten topper notes, and solved PYQ sets.",
-    "url": "https://sppupyq.live/marketplace",
-    "publisher": {
-      "@type": "EducationalOrganization",
-      "name": "SPPUVault",
-      "url": "https://sppupyq.live/"
-    }
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": "https://sppupyq.live/marketplace#collection",
+        "name": "SPPUVault Study Marketplace",
+        "description": "Premium verified SPPU Engineering study materials, handwritten topper notes, and solved PYQ sets.",
+        "url": "https://sppupyq.live/marketplace",
+        "publisher": {
+          "@type": "EducationalOrganization",
+          "name": "SPPUVault",
+          "url": "https://sppupyq.live/"
+        }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https://sppupyq.live/marketplace#breadcrumb",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://sppupyq.live/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Marketplace",
+            "item": "https://sppupyq.live/marketplace"
+          }
+        ]
+      }
+    ]
   }
   </script>
 

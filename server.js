@@ -324,9 +324,11 @@ app.get('/sgpa-calculator', (req, res) => {
 });
 
 // ── Product SEO Route ─────────────────────────────────────────────────────────
-app.get('/product.html', ensureDbConnected, async (req, res, next) => {
+app.get(['/product', '/product.html'], ensureDbConnected, async (req, res, next) => {
   const productId = req.query.id;
-  if (!productId) return next();
+  if (!productId) {
+    return res.type('html').send(getStaticFile('product.html'));
+  }
 
   try {
     const Product = require('./models/Product');
@@ -337,7 +339,7 @@ app.get('/product.html', ensureDbConnected, async (req, res, next) => {
     if (!p) {
       p = await Product.findOne({ slug: productId });
     }
-    if (!p) return next();
+    if (!p) return res.type('html').send(getStaticFile('product.html'));
 
     let html = getStaticFile('product.html');
     
@@ -345,7 +347,8 @@ app.get('/product.html', ensureDbConnected, async (req, res, next) => {
     const prodDesc = (p.description || `Download verified SPPU Engineering study material for ${p.branch || 'all branches'}. Handwritten notes and solved PYQs on SPPUVault.`).replace(/"/g, '&quot;');
     const base = getSiteBaseUrl(req);
     const prodImage = p.thumbnailUrl || p.previewUrl || `${base}/assets/og-image.png`;
-    const prodUrl = `${base}/product.html?id=${p._id}`;
+    const prodIdentifier = p.slug || p._id;
+    const prodUrl = `${base}/product?id=${prodIdentifier}`;
     const prodPrice = p.price || 0;
 
     const productSchema = {
@@ -370,18 +373,14 @@ app.get('/product.html', ensureDbConnected, async (req, res, next) => {
 
     html = html.replace(/<title>[^<]+<\/title>/g, `<title>${prodTitle}</title>`);
     html = html.replace(/<link rel="canonical" href="[^"]*"/g, `<link rel="canonical" href="${prodUrl}"`);
+    html = html.replace(/<meta name="description" content="[^"]*"/g, `<meta name="description" content="${prodDesc}"`);
+    html = html.replace(/<meta property="og:title" content="[^"]*"/g, `<meta property="og:title" content="${prodTitle}">`);
+    html = html.replace(/<meta property="og:description" content="[^"]*"/g, `<meta property="og:description" content="${prodDesc}">`);
+    html = html.replace(/<meta property="og:image" content="[^"]*"/g, `<meta property="og:image" content="${prodImage}">`);
+    html = html.replace(/<meta property="og:url" content="[^"]*"/g, `<meta property="og:url" content="${prodUrl}">`);
     
-    const seoTags = `
-  <meta property="og:title" content="${prodTitle}">
-  <meta property="og:description" content="${prodDesc}">
-  <meta property="og:image" content="${prodImage}">
-  <meta property="og:url" content="${prodUrl}">
-  <meta name="twitter:card" content="summary_large_image">
-  <script type="application/ld+json">
-  ${JSON.stringify(productSchema, null, 2)}
-  </script>
-`;
-    html = html.replace('</head>', `${seoTags}\n</head>`);
+    const schemaTag = `\n  <script type="application/ld+json">\n  ${JSON.stringify(productSchema, null, 2)}\n  </script>\n`;
+    html = html.replace('</head>', `${schemaTag}</head>`);
     html = html.replace('<h1 class="p-title" id="pTitle">SPPU Engineering Study Material</h1>', `<h1 class="p-title" id="pTitle">${p.title}</h1>`);
     res.type('html').send(html);
   } catch (err) {
@@ -556,6 +555,16 @@ app.get('/sitemap.xml', ensureDbConnected, async (req, res) => {
         }
       }
     });
+
+    // Populate Marketplace Products into sitemap
+    try {
+      const Product = require('./models/Product');
+      const marketplaceProducts = await Product.find({}, '_id slug').lean();
+      marketplaceProducts.forEach(prod => {
+        const prodIdentifier = prod.slug || prod._id;
+        urls.add(`${base}/product?id=${prodIdentifier}`);
+      });
+    } catch (_) {}
 
     // --- SEO BOOST: Inject all possible subjects for 2019 and 2024 patterns ---
     // Since there's a catch-all route mapping to index.html, these URLs will serve the home page
