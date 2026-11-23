@@ -105,6 +105,7 @@ document.querySelectorAll('.nav-item[data-panel]').forEach(item => {
     }
     if (panelId === 'premium') window.loadPremiumAdminFiles();
     if (panelId === 'earnings') window.loadEarningsAnalytics();
+    if (panelId === 'coupons') window.loadCouponsAdmin();
     if (panelId === 'categories') loadCatStructure();
     if (panelId === 'feedback') {
       loadFeedback();
@@ -2462,6 +2463,181 @@ window.saveEditPremium = async function () {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Save Changes ✨';
+  }
+};
+
+// ── Coupon Management ──────────────────────────────────────────────────────────
+window.onCouponTypeChange = function () {
+  const type = document.getElementById('cpType').value;
+  const label = document.getElementById('cpValueLabel');
+  const input = document.getElementById('cpValue');
+  if (type === 'flat') {
+    label.innerHTML = 'Discount Amount (₹) <span class="req">*</span>';
+    input.placeholder = 'e.g. 20';
+  } else {
+    label.innerHTML = 'Discount Percentage (%) <span class="req">*</span>';
+    input.placeholder = 'e.g. 50';
+  }
+};
+
+window.loadCouponsAdmin = async function () {
+  const container = document.getElementById('adminCouponsList');
+  if (!container) return;
+
+  try {
+    container.innerHTML = '<div class="empty-state small">Loading coupons...</div>';
+    const res = await fetch('/admin/coupons');
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      container.innerHTML = `<div class="empty-state small" style="color:#ef4444">${data.error || 'Failed to load coupons'}</div>`;
+      return;
+    }
+
+    const coupons = data.coupons || [];
+    if (!coupons.length) {
+      container.innerHTML = '<div class="empty-state small">No coupons created yet. Create your first coupon above!</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <table class="recent-table" style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border); text-align: left; font-size: 0.85rem; color: var(--text-secondary);">
+            <th style="padding: 10px 8px;">CODE</th>
+            <th style="padding: 10px 8px;">DISCOUNT</th>
+            <th style="padding: 10px 8px;">USES</th>
+            <th style="padding: 10px 8px;">STATUS</th>
+            <th style="padding: 10px 8px; text-align: right;">ACTION</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${coupons.map(c => {
+            const isPercent = c.discountType === 'percentage';
+            const discText = isPercent ? `${c.discountValue}% OFF` : `₹${c.discountValue} OFF`;
+            const usesText = `${c.usedCount || 0} / ${c.maxUses ? c.maxUses : '∞'}`;
+            const isExpired = c.expiresAt && new Date(c.expiresAt) < new Date();
+            const statusBadge = isExpired ? '<span class="badge" style="background:rgba(239,68,68,0.15); color:#ef4444;">Expired</span>'
+              : c.isActive ? '<span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981;">Active</span>'
+              : '<span class="badge" style="background:rgba(107,114,128,0.15); color:#9ca3af;">Inactive</span>';
+
+            return `
+              <tr style="border-bottom: 1px solid var(--surface2);">
+                <td style="padding: 12px 8px; font-weight: 700; color: var(--accent); letter-spacing: 0.5px;">${escHtml(c.code)}</td>
+                <td style="padding: 12px 8px;"><span class="badge" style="background:var(--surface2); color:var(--text); font-weight:600;">${discText}</span></td>
+                <td style="padding: 12px 8px; font-size: 0.9rem; color: var(--text-secondary);">${usesText}</td>
+                <td style="padding: 12px 8px;">${statusBadge}</td>
+                <td style="padding: 12px 8px; text-align: right;">
+                  <button class="btn-ghost small" onclick="window.toggleCouponAdmin('${c._id}')" style="margin-right: 4px;" title="Toggle Active">
+                    ${c.isActive ? 'Disable' : 'Enable'}
+                  </button>
+                  <button class="btn-ghost small" onclick="window.deleteCouponAdmin('${c._id}')" style="color: #ef4444;" title="Delete">
+                    🗑️
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    console.error('Error loading coupons:', err);
+    container.innerHTML = '<div class="empty-state small" style="color:#ef4444">Network error loading coupons</div>';
+  }
+};
+
+window.createCouponAdmin = async function () {
+  const code = (document.getElementById('cpCode').value || '').trim();
+  const discountType = document.getElementById('cpType').value;
+  const discountValue = document.getElementById('cpValue').value;
+  const minOrderValue = document.getElementById('cpMinOrder').value;
+  const maxUses = document.getElementById('cpMaxUses').value;
+  const expiresAt = document.getElementById('cpExpiry').value;
+  const alertEl = document.getElementById('couponAlert');
+  const btn = document.getElementById('createCouponBtn');
+
+  if (!code || !discountValue) {
+    alertEl.style.display = 'block';
+    alertEl.className = 'alert error';
+    alertEl.textContent = 'Please enter coupon code and discount value.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+  alertEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/admin/coupons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        discountType,
+        discountValue,
+        minOrderValue,
+        maxUses: maxUses ? Number(maxUses) : null,
+        expiresAt: expiresAt || null
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      alertEl.style.display = 'block';
+      alertEl.className = 'alert error';
+      alertEl.textContent = data.error || 'Failed to create coupon';
+      return;
+    }
+
+    alertEl.style.display = 'block';
+    alertEl.className = 'alert success';
+    alertEl.textContent = `Coupon ${data.coupon.code} created successfully! 🎉`;
+
+    // Clear form
+    document.getElementById('cpCode').value = '';
+    document.getElementById('cpValue').value = '';
+    document.getElementById('cpMinOrder').value = '0';
+    document.getElementById('cpMaxUses').value = '';
+    document.getElementById('cpExpiry').value = '';
+
+    await window.loadCouponsAdmin();
+  } catch (err) {
+    alertEl.style.display = 'block';
+    alertEl.className = 'alert error';
+    alertEl.textContent = 'Network error creating coupon.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Create Coupon';
+  }
+};
+
+window.toggleCouponAdmin = async function (id) {
+  try {
+    const res = await fetch(`/admin/coupons/${id}/toggle`, { method: 'PATCH' });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      await window.loadCouponsAdmin();
+    } else {
+      alert(data.error || 'Failed to toggle coupon');
+    }
+  } catch (err) {
+    alert('Network error toggling coupon');
+  }
+};
+
+window.deleteCouponAdmin = async function (id) {
+  if (!confirm('Are you sure you want to delete this coupon?')) return;
+  try {
+    const res = await fetch(`/admin/coupons/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      await window.loadCouponsAdmin();
+    } else {
+      alert(data.error || 'Failed to delete coupon');
+    }
+  } catch (err) {
+    alert('Network error deleting coupon');
   }
 };
 

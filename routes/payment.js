@@ -6,8 +6,54 @@ const { sendPurchaseEmail } = require('../utils/email');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Purchase = require('../models/Purchase');
+const Coupon = require('../models/Coupon');
 const { requireAuth } = require('../middleware/auth');
 const https = require('https');
+
+// Helper to validate and calculate coupon discount
+async function validateCoupon(codeStr, product) {
+  if (!codeStr || !codeStr.trim()) {
+    return { valid: false, error: 'Coupon code is required' };
+  }
+  const cleanCode = codeStr.trim().toUpperCase();
+  const coupon = await Coupon.findOne({ code: cleanCode });
+  if (!coupon) {
+    return { valid: false, error: 'Invalid coupon code' };
+  }
+  if (!coupon.isActive) {
+    return { valid: false, error: 'This coupon is no longer active' };
+  }
+  if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+    return { valid: false, error: 'This coupon has expired' };
+  }
+  if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
+    return { valid: false, error: 'Coupon usage limit reached' };
+  }
+  if (coupon.minOrderValue && product.price < coupon.minOrderValue) {
+    return { valid: false, error: `Minimum order of ₹${coupon.minOrderValue} required for this coupon` };
+  }
+
+  let discount = 0;
+  if (coupon.discountType === 'percentage') {
+    discount = Math.round((product.price * coupon.discountValue) / 100);
+    if (coupon.maxDiscount && discount > coupon.maxDiscount) {
+      discount = coupon.maxDiscount;
+    }
+  } else {
+    discount = Math.round(coupon.discountValue);
+  }
+
+  discount = Math.min(product.price, Math.max(0, discount));
+  const finalPrice = Math.max(0, product.price - discount);
+
+  return {
+    valid: true,
+    coupon,
+    discount,
+    finalPrice,
+    code: coupon.code
+  };
+}
 
 // Native Fetch Razorpay Order Creator (100% Cloudflare Workers & Node Compatible)
 async function createRazorpayOrder(options) {
@@ -35,10 +81,48 @@ async function createRazorpayOrder(options) {
   return data;
 }
 
+// POST /api/payment/apply-coupon
+router.post('/apply-coupon', async (req, res) => {
+  try {
+    const { productId, couponCode } = req.body;
+    if (!productId || !couponCode) {
+      return res.status(400).json({ error: 'Product ID and coupon code are required' });
+    }
+
+    let product;
+    const { ObjectId } = require('../utils/db');
+    if (ObjectId.isValid(productId)) {
+      product = await Product.findById(productId);
+    }
+    if (!product) {
+      product = await Product.findOne({ slug: productId });
+    }
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    const result = await validateCoupon(couponCode, product);
+    if (!result.valid) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({
+      success: true,
+      code: result.code,
+      discount: result.discount,
+      finalPrice: result.finalPrice,
+      originalPrice: product.price,
+      discountType: result.coupon.discountType,
+      discountValue: result.coupon.discountValue
+    });
+  } catch (err) {
+    console.error('Error applying coupon:', err);
+    res.status(500).json({ error: 'Failed to apply coupon' });
+  }
+});
+
 // POST /api/payment/create-order
 router.post('/create-order', requireAuth, async (req, res) => {
   try {
-    const { productId } = req.body;
+    const { productId, couponCode } = req.body;
     if (!productId) return res.status(400).json({ error: 'Product ID is required' });
 
     let product;
@@ -57,13 +141,33 @@ router.post('/create-order', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'You have already purchased this product' });
     }
 
-    if (product.price === 0) {
+    let finalPrice = product.price;
+    let appliedCoupon = null;
+    let discountAmount = 0;
+
+    if (couponCode && couponCode.trim()) {
+      const couponRes = await validateCoupon(couponCode, product);
+      if (!couponRes.valid) {
+        return res.status(400).json({ error: couponRes.error });
+      }
+      finalPrice = couponRes.finalPrice;
+      appliedCoupon = couponRes.coupon;
+      discountAmount = couponRes.discount;
+    }
+
+    if (finalPrice === 0) {
       const newPurchase = new Purchase({
         user: req.user._id,
         product: product._id,
-        pricePaid: 0
+        pricePaid: 0,
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        purchasedAt: new Date()
       });
       await newPurchase.save();
+
+      if (appliedCoupon) {
+        await Coupon.updateOne({ _id: appliedCoupon._id }, { $inc: { usedCount: 1 } });
+      }
 
       // Send email receipt asynchronously
       sendPurchaseEmail(req.user.email, req.user.username, product.title, 0, newPurchase._id).catch(console.error);
@@ -76,7 +180,7 @@ router.post('/create-order', requireAuth, async (req, res) => {
 
     // Razorpay amount is in paise (multiply by 100)
     const options = {
-      amount: Math.round(product.price * 100),
+      amount: Math.round(finalPrice * 100),
       currency: 'INR',
       receipt: `rcpt_${Date.now()}_${String(req.user._id).slice(-8)}`
     };
@@ -87,7 +191,9 @@ router.post('/create-order', requireAuth, async (req, res) => {
     const newOrder = await Order.create({
       user: req.user._id,
       items: [{ product: product._id }],
-      amount: product.price,
+      amount: finalPrice,
+      couponCode: appliedCoupon ? appliedCoupon.code : null,
+      discount: discountAmount,
       paymentGateway: 'razorpay',
       orderId: order.id,
       status: 'pending'
@@ -139,8 +245,14 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
             user: req.user._id,
             product: prodId,
             orderId: order._id || order.id,
-            pricePaid: order.amount || 0
+            pricePaid: order.amount || 0,
+            couponCode: order.couponCode || null,
+            purchasedAt: new Date()
           });
+
+          if (order.couponCode) {
+            Coupon.updateOne({ code: order.couponCode }, { $inc: { usedCount: 1 } }).catch(console.error);
+          }
           
           // Send email receipt asynchronously
           Product.findById(prodId).then(p => {

@@ -949,4 +949,81 @@ router.post('/telegram-promo', requireAdmin, async (req, res) => {
   }
 });
 
+// ── Coupon Management ──────────────────────────────────────────────────────────
+router.get('/coupons', requireAdmin, async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    const coupons = await Coupon.find().sort({ createdAt: -1 });
+    res.json({ success: true, coupons });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/coupons', requireAdmin, async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    const { code, discountType, discountValue, minOrderValue, maxDiscount, maxUses, expiresAt } = req.body;
+
+    if (!code || !code.trim()) {
+      return res.status(400).json({ error: 'Coupon code is required' });
+    }
+    const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    if (!cleanCode) {
+      return res.status(400).json({ error: 'Invalid coupon code format' });
+    }
+
+    const val = Number(discountValue);
+    if (isNaN(val) || val <= 0) {
+      return res.status(400).json({ error: 'Valid discount value is required' });
+    }
+
+    const existing = await Coupon.findOne({ code: cleanCode });
+    if (existing) {
+      return res.status(400).json({ error: `Coupon code '${cleanCode}' already exists` });
+    }
+
+    const newCoupon = await Coupon.create({
+      code: cleanCode,
+      discountType: discountType === 'flat' ? 'flat' : 'percentage',
+      discountValue: val,
+      minOrderValue: Number(minOrderValue) || 0,
+      maxDiscount: maxDiscount ? Number(maxDiscount) : null,
+      maxUses: maxUses ? Number(maxUses) : null,
+      usedCount: 0,
+      isActive: true,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      createdAt: new Date()
+    });
+
+    res.json({ success: true, coupon: newCoupon });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/coupons/:id/toggle', requireAdmin, async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    const coupon = await Coupon.findById(req.params.id);
+    if (!coupon) return res.status(404).json({ error: 'Coupon not found' });
+
+    coupon.isActive = !coupon.isActive;
+    await coupon.save();
+    res.json({ success: true, isActive: coupon.isActive });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/coupons/:id', requireAdmin, async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    await Coupon.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Coupon deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

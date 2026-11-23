@@ -310,6 +310,23 @@
           Instant access after payment
         </li>
       </ul>
+
+      <!-- Coupon Code Section -->
+      <div class="coupon-section" style="margin: 1.5rem 0 1.25rem; background: var(--surface-glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 14px 16px;">
+        <label for="couponInput" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+          🎟️ Have a Coupon / Promo Code?
+        </label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="couponInput" placeholder="ENTER CODE" maxlength="25"
+            style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px 14px; font-size: 0.95rem; color: var(--text); font-weight: 700; text-transform: uppercase; outline: none; letter-spacing: 1px;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault(); applyCoupon();}" />
+          <button type="button" id="applyCouponBtn" onclick="applyCoupon()"
+            style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 18px; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s ease;">
+            Apply
+          </button>
+        </div>
+        <div id="couponMsg" style="margin-top: 8px; font-size: 0.85rem; font-weight: 600; display: none;"></div>
+      </div>
       
       <div class="action-buttons">
         <button class="btn-buy-lg" id="buyBtn" onclick="checkout()">Buy Now</button>
@@ -340,6 +357,79 @@
   <script>
     let currentProductId = null;
     let currentPrice = null;
+    let appliedCoupon = null;
+
+    async function applyCoupon() {
+      const input = document.getElementById('couponInput');
+      const msg = document.getElementById('couponMsg');
+      const btn = document.getElementById('applyCouponBtn');
+      const code = (input.value || '').trim();
+
+      if (!code) {
+        msg.style.display = 'block';
+        msg.style.color = '#ef4444';
+        msg.textContent = 'Please enter a coupon code';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '...';
+      msg.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/payment/apply-coupon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: currentProductId, couponCode: code })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          msg.style.display = 'block';
+          msg.style.color = '#ef4444';
+          msg.textContent = data.error || 'Invalid coupon code';
+          appliedCoupon = null;
+          updatePriceDisplay(currentPrice);
+          return;
+        }
+
+        appliedCoupon = data;
+        msg.style.display = 'block';
+        msg.style.color = '#10b981';
+        msg.innerHTML = `✓ Coupon <b>${data.code}</b> applied! Saved ₹${data.discount}`;
+
+        updatePriceDisplay(data.finalPrice, data.originalPrice, data.discount);
+      } catch (err) {
+        msg.style.display = 'block';
+        msg.style.color = '#ef4444';
+        msg.textContent = 'Failed to apply coupon. Try again.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Apply';
+      }
+    }
+
+    function updatePriceDisplay(finalPrice, originalPrice, discount) {
+      const priceEl = document.getElementById('pPrice');
+      const buyBtn = document.getElementById('buyBtn');
+      const unlockBtn = document.getElementById('modalUnlockBtn');
+
+      if (discount && discount > 0) {
+        priceEl.innerHTML = `
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <span style="color:var(--text-secondary); text-decoration:line-through; font-size:1.2rem; font-weight:500;">₹${originalPrice}</span>
+            <span>₹${finalPrice}</span>
+            <span style="background:rgba(16,185,129,0.15); color:#10b981; padding:4px 8px; border-radius:6px; font-size:0.9rem; font-weight:700;">₹${discount} OFF</span>
+          </div>
+        `;
+      } else {
+        priceEl.textContent = `₹${finalPrice}`;
+      }
+
+      const btnText = finalPrice === 0 ? 'Get for Free' : `Buy Now — ₹${finalPrice}`;
+      buyBtn.textContent = btnText;
+      if (unlockBtn) unlockBtn.textContent = finalPrice === 0 ? 'Unlock for Free' : `Unlock Full PDF for ₹${finalPrice}`;
+    }
 
     async function loadProductDetails() {
       const params = new URLSearchParams(window.location.search);
@@ -462,10 +552,15 @@
     async function checkout() {
       if (!currentProductId) return;
       try {
+        const payload = { productId: currentProductId };
+        if (appliedCoupon && appliedCoupon.code) {
+          payload.couponCode = appliedCoupon.code;
+        }
+
         const res = await fetch('/api/payment/create-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productId: currentProductId })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
         

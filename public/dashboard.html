@@ -48,6 +48,9 @@
       <a href="#" class="nav-item" data-panel="earnings">
         <span class="nav-icon">💰</span> Earnings
       </a>
+      <a href="#" class="nav-item" data-panel="coupons">
+        <span class="nav-icon">🎟️</span> Coupons
+      </a>
       <a href="#" class="nav-item" data-panel="feedback">
         <span class="nav-icon">💬</span> Feedback <span class="nav-badge" id="badge-feedback"
           style="display:none"></span>
@@ -514,6 +517,73 @@
         <div class="recent-header">Recent Purchases</div>
         <div id="earningsList">
           <div class="empty-state small">No sales yet. Keep going!</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL: COUPONS ══ -->
+    <section class="panel" id="panel-coupons">
+      <div class="panel-header">
+        <h2>Coupons & Promo Codes</h2>
+        <button class="btn-ghost" onclick="window.loadCouponsAdmin()">↻ Refresh</button>
+      </div>
+
+      <div class="upload-layout">
+        <!-- Create Coupon Form -->
+        <div class="upload-form-card">
+          <div class="alert" id="couponAlert" style="display:none"></div>
+          <h3 style="margin-bottom: 1.25rem; font-size: 1.1rem; color: var(--text);">Create New Coupon</h3>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Coupon Code <span class="req">*</span></label>
+              <input type="text" id="cpCode" placeholder="e.g. EXAM50" style="text-transform: uppercase;" required />
+            </div>
+            <div class="form-group">
+              <label>Discount Type <span class="req">*</span></label>
+              <select id="cpType" onchange="window.onCouponTypeChange()">
+                <option value="percentage">Percentage (% OFF)</option>
+                <option value="flat">Flat Amount (₹ OFF)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label id="cpValueLabel">Discount Percentage (%) <span class="req">*</span></label>
+              <input type="number" id="cpValue" placeholder="e.g. 50" min="1" required />
+            </div>
+            <div class="form-group">
+              <label>Min Order Value (₹)</label>
+              <input type="number" id="cpMinOrder" placeholder="0" min="0" value="0" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Max Uses (Optional)</label>
+              <input type="number" id="cpMaxUses" placeholder="Empty = Unlimited" min="1" />
+            </div>
+            <div class="form-group">
+              <label>Expiry Date (Optional)</label>
+              <input type="date" id="cpExpiry" />
+            </div>
+          </div>
+
+          <button class="btn-primary" id="createCouponBtn" onclick="window.createCouponAdmin()" style="width: 100%; margin-top: 1rem;">
+            Create Coupon
+          </button>
+        </div>
+
+        <!-- Coupons List -->
+        <div class="recent-card" style="overflow-y:auto; max-height:800px;">
+          <div class="recent-header" style="display:flex; justify-content:space-between; align-items:center;">
+            Active & Past Coupons
+            <button class="btn-ghost small" onclick="window.loadCouponsAdmin()">↻</button>
+          </div>
+          <div id="adminCouponsList">
+            <div class="empty-state small">No coupons created yet</div>
+          </div>
         </div>
       </div>
     </section>
