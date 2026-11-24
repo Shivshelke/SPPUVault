@@ -315,31 +315,51 @@ async function handleUrlRouting() {
       let year = match[1];
       if (year === 'final') year = 'fourth';
 
-      let branchSlug = match[2];
+      let rawBranchSlug = match[2];
+      let branchSlug = rawBranchSlug;
       if (branchSlug === 'fe-engineering') {
         branchSlug = 'fe';
       } else if (branchSlug === 'engineering') {
         branchSlug = null;
-      } else if (branchSlug.endsWith('-engineering')) {
-        branchSlug = branchSlug.replace(/-engineering$/, '');
       }
+
+      const allBranches = CONFIG[year]?.branches || [];
+      const matchBranch = (slug, list) => {
+        if (!slug) return null;
+        const clean = slug.toLowerCase().trim();
+        let found = list.find(b => slugify(b) === clean);
+        if (found) return found;
+        found = list.find(b => {
+          const bSlug = slugify(b);
+          const seoSlug = bSlug.endsWith('-engineering') ? bSlug : `${bSlug}-engineering`;
+          return seoSlug === clean;
+        });
+        if (found) return found;
+        const strippedClean = clean.replace(/-engineering$/, '');
+        found = list.find(b => {
+          const bSlug = slugify(b);
+          const strippedB = bSlug.replace(/-engineering$/, '');
+          return strippedB === strippedClean;
+        });
+        return found || null;
+      };
 
       selectYear(year);
 
       if (year === 'first' || branchSlug === 'fe') {
         if (subjectSlug) {
-          let resolvedSubject = CONFIG.first?.subjects?.find(s => slugify(s) === subjectSlug);
+          let resolvedSubject = CONFIG.first?.subjects?.find(s => slugify(s) === subjectSlug || slugify(s).toLowerCase() === subjectSlug.toLowerCase());
           if (!resolvedSubject) {
             try {
               const res = await fetch(`/api/files?year=first`);
               const files = await res.json();
-              resolvedSubject = files.map(f => f.subject).find(s => slugify(s) === subjectSlug);
+              resolvedSubject = files.map(f => f.subject).find(s => slugify(s) === subjectSlug || slugify(s).toLowerCase() === subjectSlug.toLowerCase());
             } catch (e) { console.error(e); }
           }
           await selectSubject(resolvedSubject || decodeURIComponent(subjectSlug));
         }
       } else if (branchSlug) {
-        const resolvedBranch = CONFIG[year]?.branches?.find(b => slugify(b) === branchSlug) || decodeURIComponent(branchSlug);
+        const resolvedBranch = matchBranch(branchSlug, allBranches) || decodeURIComponent(branchSlug);
         await selectBranch(resolvedBranch, CONFIG[year] || {});
 
         if (subjectSlug) {
@@ -363,16 +383,21 @@ async function handleUrlRouting() {
             ];
           }
 
-          resolvedSubject = flatConfigSubjects.find(s => slugify(s) === subjectSlug);
+          resolvedSubject = flatConfigSubjects.find(s => slugify(s) === subjectSlug || slugify(s).toLowerCase() === subjectSlug.toLowerCase());
 
           if (!resolvedSubject) {
             try {
               const res = await fetch(`/api/files?year=${year}&branch=${encodeURIComponent(resolvedBranch)}`);
               const files = await res.json();
-              resolvedSubject = files.map(f => f.subject).find(s => slugify(s) === subjectSlug);
+              resolvedSubject = files.map(f => f.subject).find(s => slugify(s) === subjectSlug || slugify(s).toLowerCase() === subjectSlug.toLowerCase());
             } catch (e) { console.error(e); }
           }
-          await selectSubject(resolvedSubject || decodeURIComponent(subjectSlug));
+
+          let patternToPass = '2024';
+          if (subjectSlug.includes('2019') || (resolvedSubject && resolvedSubject.includes('2019'))) {
+            patternToPass = '2019';
+          }
+          await selectSubject(resolvedSubject || decodeURIComponent(subjectSlug), patternToPass);
         }
       }
     }

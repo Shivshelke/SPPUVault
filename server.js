@@ -161,8 +161,28 @@ async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
   } catch (err) {}
   const allBranches = [...new Set([...branches, ...dbBranches])].filter(Boolean);
 
+  const matchBranch = (slug, list) => {
+    if (!slug) return null;
+    const clean = slug.toLowerCase().trim();
+    let found = list.find(b => slugify(b) === clean);
+    if (found) return found;
+    found = list.find(b => {
+      const bSlug = slugify(b);
+      const seoSlug = bSlug.endsWith('-engineering') ? bSlug : `${bSlug}-engineering`;
+      return seoSlug === clean;
+    });
+    if (found) return found;
+    const strippedClean = clean.replace(/-engineering$/, '');
+    found = list.find(b => {
+      const bSlug = slugify(b);
+      const strippedB = bSlug.replace(/-engineering$/, '');
+      return strippedB === strippedClean;
+    });
+    return found || null;
+  };
+
   if (branchSlug) {
-    resolvedBranch = allBranches.find(b => slugify(b) === branchSlug) || branchSlug;
+    resolvedBranch = matchBranch(branchSlug, allBranches) || branchSlug;
   }
 
   // Gather subjects for this year + branch
@@ -182,16 +202,14 @@ async function resolveBranchAndSubject(year, branchSlug, subjectSlug) {
   }
   let dbSubjects = [];
   try {
-    if (subjects.length === 0) {
-      const dbSubjectsQuery = { year };
-      if (resolvedBranch) dbSubjectsQuery.branch = resolvedBranch;
-      dbSubjects = await File.distinct('subject', dbSubjectsQuery);
-    }
+    const dbSubjectsQuery = { year };
+    if (resolvedBranch && resolvedBranch !== 'FE') dbSubjectsQuery.branch = resolvedBranch;
+    dbSubjects = await File.distinct('subject', dbSubjectsQuery);
   } catch (err) {}
   const allSubjects = [...new Set([...subjects, ...dbSubjects])].filter(Boolean);
 
   if (subjectSlug) {
-    resolvedSubject = allSubjects.find(s => slugify(s) === subjectSlug) || subjectSlug;
+    resolvedSubject = allSubjects.find(s => slugify(s) === subjectSlug || slugify(s).toLowerCase() === subjectSlug.toLowerCase()) || subjectSlug;
   }
 
   return { resolvedBranch, resolvedSubject };
@@ -744,8 +762,6 @@ app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) =>
       branchSlug = 'fe';
     } else if (branchSlug === 'engineering') {
       branchSlug = null; // Bare year page
-    } else if (branchSlug.endsWith('-engineering')) {
-      branchSlug = branchSlug.replace(/-engineering$/, '');
     }
 
     const { resolvedBranch, resolvedSubject } = await resolveBranchAndSubject(year, branchSlug, subjectSlug);
@@ -861,8 +877,12 @@ app.get('/:yearSlug/:subjectSlug?', ensureDbConnected, async (req, res, next) =>
       const File = require('./models/File');
       const query = { contentType: 'regular' };
       if (year) query.year = year;
-      if (branchSlug && branchSlug !== 'FE') query.branch = formattedBranch;
-      if (subjectSlug) query.subject = formattedSubject;
+      if (branchSlug && branchSlug !== 'FE' && formattedBranch) {
+        query.branch = new RegExp(`^${formattedBranch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      }
+      if (subjectSlug && formattedSubject) {
+        query.subject = new RegExp(`^${formattedSubject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      }
 
       files = await File.find(query).sort({ isPinned: -1, uploadDate: -1 }).lean();
       console.log('[Catalog] 3. Files fetched:', files.length);

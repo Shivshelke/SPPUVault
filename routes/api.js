@@ -226,8 +226,8 @@ router.get('/files', async (req, res) => {
     const { year, branch, subject, semester, search, pattern } = req.query;
     const query = { contentType: 'regular' };
     if (year) query.year = year;
-    if (branch) query.branch = branch;
-    if (subject) query.subject = subject;
+    if (branch) query.branch = new RegExp(`^${branch.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    if (subject) query.subject = new RegExp(`^${subject.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
     if (semester) query.semester = semester;
 
     if (search) {
