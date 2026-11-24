@@ -169,8 +169,12 @@ router.post('/create-order', requireAuth, async (req, res) => {
         await Coupon.updateOne({ _id: appliedCoupon._id }, { $inc: { usedCount: 1 } });
       }
 
-      // Send email receipt asynchronously
-      sendPurchaseEmail(req.user.email, req.user.username, product.title, 0, newPurchase._id).catch(console.error);
+      // Send email receipt
+      try {
+        await sendPurchaseEmail(req.user.email, req.user.username, product.title, 0, newPurchase._id);
+      } catch (mailErr) {
+        console.error('[Free Purchase Mail Error]:', mailErr);
+      }
 
       return res.json({
         success: true,
@@ -254,12 +258,15 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
             Coupon.updateOne({ code: order.couponCode }, { $inc: { usedCount: 1 } }).catch(console.error);
           }
           
-          // Send email receipt asynchronously
-          Product.findById(prodId).then(p => {
+          // Send email receipt
+          try {
+            const p = await Product.findById(prodId);
             if (p) {
-              sendPurchaseEmail(req.user.email, req.user.username, p.title, order.amount, purchase._id).catch(console.error);
+              await sendPurchaseEmail(req.user.email, req.user.username, p.title, order.amount, purchase._id);
             }
-          }).catch(console.error);
+          } catch (mailErr) {
+            console.error('[Purchase Mail Error]:', mailErr);
+          }
         }
       }
 
