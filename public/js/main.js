@@ -448,7 +448,6 @@ function selectYear(year) {
 
   const panel = document.getElementById('browserPanel');
   panel.style.display = 'block';
-  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   document.getElementById('panelTitle').textContent = yearData.label;
 
@@ -498,6 +497,12 @@ function selectYear(year) {
       grid.appendChild(tag);
     });
   }
+
+  // Scroll after layout & DOM tags are rendered (reliable across Safari/Chrome/mobile)
+  setTimeout(() => {
+    const top = panel.getBoundingClientRect().top + window.scrollY - 80;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }, 80);
 }
 
 // ── Branch selection ──────────────────────────────────────────────────────────
