@@ -512,7 +512,6 @@ app.get('/sitemap.xml', ensureDbConnected, async (req, res) => {
     urls.add(`${base}/articles`);
     urls.add(`${base}/about`);
     urls.add(`${base}/contact`);
-    urls.add(`${base}/student-login`);
     urls.add(`${base}/sgpa-calculator`);
     urls.add(`${base}/sppu-previous-year-question-paper-2024-pattern`);
     urls.add(`${base}/sppu-pyq-drive-2024-pattern`);
@@ -521,43 +520,21 @@ app.get('/sitemap.xml', ensureDbConnected, async (req, res) => {
     urls.add(`${base}/deld-subject`);
     urls.add(`${base}/sppu-m2-pyq`);
 
-    // Add Year page catalogs
+    // Add Year & Branch catalog pages (skip empty subject shells to save crawl budget)
     const yearOrder = ['first', 'second', 'third', 'fourth'];
     yearOrder.forEach(y => {
       urls.add(`${base}${getSeoUrl(y, null, null)}`);
     });
 
-    // Populate URLs from CategoryConfig
     for (const [yearKey, yearVal] of Object.entries(yearsConfig)) {
-      if (!yearOrder.includes(yearKey)) continue;
-
-      if (yearKey === 'first') {
-        const subjects = yearVal.subjects || [];
-        subjects.forEach(sub => {
-          urls.add(`${base}${getSeoUrl(yearKey, 'FE', sub)}`);
-        });
-      } else {
-        const branches = yearVal.branches || [];
-        branches.forEach(br => {
-          urls.add(`${base}${getSeoUrl(yearKey, br, null)}`);
-
-          let branchSubjects = [];
-          if (yearVal.subjects) {
-            const val = yearVal.subjects[br];
-            if (Array.isArray(val)) {
-              branchSubjects = val;
-            } else if (typeof val === 'object' && val !== null) {
-              branchSubjects = Object.values(val).flat();
-            }
-          }
-          branchSubjects.forEach(sub => {
-            urls.add(`${base}${getSeoUrl(yearKey, br, sub)}`);
-          });
-        });
-      }
+      if (!yearOrder.includes(yearKey) || yearKey === 'first') continue;
+      const branches = yearVal.branches || [];
+      branches.forEach(br => {
+        urls.add(`${base}${getSeoUrl(yearKey, br, null)}`);
+      });
     }
 
-    // Also populate from database files to ensure no file pages are missed
+    // Populate Subject URLs only where actual files exist in DB
     const files = await File.find({ contentType: 'regular' }, 'year branch subject').lean();
     files.forEach(f => {
       if (f.year) {
