@@ -1,35 +1,35 @@
-# SPPUVault — SPPU Engineering Previous Year Questions (PYQs)
+# SPPUVault — SPPU Engineering Previous Year Questions (PYQs) & Notes
 
-> SPPUVault is the leading, free, and comprehensive educational portal for engineering students of Savitribai Phule Pune University (SPPU). It provides organized access to Previous Year Question (PYQ) papers, solved papers, syllabus patterns, and topper study notes specifically tailored for the latest SPPU 2024 Pattern (NEP).
+> SPPUVault (https://sppupyq.live/) is a free, organized educational portal for engineering students of Savitribai Phule Pune University (SPPU). It provides direct PDF downloads of Previous Year Question (PYQ) papers, solved papers, handwritten topper notes, important question micro-packs, and an SGPA calculator tailored for the SPPU 2024 Pattern (NEP), 2025 Pattern, and 2019 Pattern.
 >
-> **Official Portals:**
-> - Active Domain: https://sppupyq.live/
-> - Alternate / Mirror Domain: https://sppupyq.live/
+> **Official Domain:** https://sppupyq.live/
 
-## Core Pages & Portals
-- [Home & PYQ Browser](https://sppupyq.live/): Search and download question papers across all engineering disciplines
-- [Complete 2024 Pattern PYQ Drive](https://sppupyq.live/sppu-pyq-drive-2024-pattern): One-click access to all subjects, branches, insem and endsem question papers
-- [Digital Study Marketplace](https://sppupyq.live/marketplace.html): Access premium verified topper notes, solved question banks, and revision guides
-- [Engineering Study Articles & Preparation Tips](https://sppupyq.live/articles.html): Insem exam strategies, time management, and scoring high in SPPU exams
-- [About SPPUVault](https://sppupyq.live/about.html): Platform mission, background, and student-first educational vision
-- [Contact & Support](https://sppupyq.live/contact.html): Submit missing paper requests or get student assistance
+## Core Pages & Tools
+- [Home & PYQ Browser](https://sppupyq.live/): Search and download question papers across all engineering disciplines (no login required)
+- [Complete SPPU PYQ Drive (2024 & 2025 Pattern)](https://sppupyq.live/sppu-pyq-drive-2024-pattern): One-click drive-style access to FE, SE, TE, BE Insem and Endsem question papers
+- [SPPU SGPA & CGPA Calculator (2024 Pattern)](https://sppupyq.live/sgpa-calculator): Calculate SGPA and percentage using official 10-point NEP grading rules
+- [Digital Study Marketplace](https://sppupyq.live/marketplace): Verified handwritten topper notes, solved micro papers, and exam-ready question banks
+- [Engineering Study Articles & Preparation Tips](https://sppupyq.live/articles): Insem/Endsem exam strategies, passing rules, and time management
+- [About SPPUVault](https://sppupyq.live/about): Platform mission and student-first educational vision
+- [Contact & Support](https://sppupyq.live/contact): Submit missing paper requests or get student assistance
 
 ## Supported Academic Years
-- [First Year (FE) Engineering](https://sppupyq.live/first-year-fe-engineering): Common group subjects including M1, M2, Physics, Chemistry, Mechanics, PPS, and BEE
-- [Second Year (SE) Engineering](https://sppupyq.live/second-year-engineering): Core branch fundamentals for Computer, IT, AI-DS, Mechanical, Civil, and E&TC
-- [Third Year (TE) Engineering](https://sppupyq.live/third-year-engineering): Advanced specialized subjects and insem/endsem papers
-- [Final Year (BE) Engineering](https://sppupyq.live/final-year-engineering): Degree exam question papers, electives, and project-year resources
+- [First Year (FE) Engineering](https://sppupyq.live/first-year-fe-engineering): M1, M2, Physics, Chemistry, Mechanics, PPS, and BEE (2024 & 2025 Pattern)
+- [Second Year (SE) Engineering](https://sppupyq.live/second-year-engineering): Core branch papers & notes for Computer, IT, AI-DS, Mechanical, Civil, and E&TC
+- [Third Year (TE) Engineering](https://sppupyq.live/third-year-engineering): Specialized subjects and Insem/Endsem papers
+- [Final Year (BE) Engineering](https://sppupyq.live/final-year-engineering): Degree exam question papers and electives
 
 ## Supported Branches
-- [Computer Engineering](https://sppupyq.live/sppu-computer-engineering-pyq-2024-pattern)
-- [Information Technology (IT)](https://sppupyq.live/sppu-it-engineering-pyq-2024-pattern)
-- [Artificial Intelligence & Data Science (AI-DS)](https://sppupyq.live/sppu-artificial-intelligence-and-data-science-pyq-2024-pattern)
-- [Electronics & Telecommunication (E&TC)](https://sppupyq.live/sppu-electronics-and-telecommunication-pyq-2024-pattern)
-- [Mechanical Engineering](https://sppupyq.live/sppu-mechanical-engineering-pyq-2024-pattern)
-- [Civil Engineering](https://sppupyq.live/sppu-civil-engineering-pyq-2024-pattern)
+- [Computer Engineering](https://sppupyq.live/second-year-computer-engineering)
+- [SE Computer Handwritten Notes](https://sppupyq.live/second-year-computer-engineering/notes)
+- [Information Technology (IT)](https://sppupyq.live/second-year-information-technology-engineering)
+- [Artificial Intelligence & Data Science (AI-DS)](https://sppupyq.live/second-year-artificial-intelligence-and-data-science-engineering)
+- [Electronics & Telecommunication (E&TC)](https://sppupyq.live/second-year-electronics-and-telecommunication-engineering)
+- [Mechanical Engineering](https://sppupyq.live/second-year-mechanical-engineering)
+- [Civil Engineering](https://sppupyq.live/second-year-civil-engineering)
 
 ## Popular Key Subjects
-- [Data Structures & Algorithms (DSA)](https://sppupyq.live/sppu-dsa-question-paper-2024-pattern): 2024 NEP Pattern insem and endsem papers
-- [Digital Electronics & Logic Design (DELD)](https://sppupyq.live/deld-subject-in-engineering): Complete insem and endsem question papers
+- [Data Structures & Algorithms (DSA)](https://sppupyq.live/sppu-dsa-question-paper-2024-pattern): 2024 & 2025 NEP Pattern Insem and Endsem papers
+- [Digital Electronics & Logic Design (DELD)](https://sppupyq.live/deld-subject-in-engineering): Complete Insem and Endsem question papers
 - [Engineering Mathematics II (M2)](https://sppupyq.live/sppu-m2-pyq): FE exam papers and solutions
-- [2024 Pattern Archive](https://sppupyq.live/sppu-question-paper-2024-pattern): Complete exam papers across all departments
+- [2024 & 2025 Pattern Archive](https://sppupyq.live/sppu-previous-year-question-paper-2024-pattern): Complete exam papers across all departments
